@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<root>
+	<xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+		<xsd:element name="root" msdata:IsDataSet="true">
+			<xsd:complexType>
+				<xsd:choice maxOccurs="unbounded">
+					<xsd:element name="data">
+						<xsd:complexType>
+							<xsd:sequence>
+								<xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+								<xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+							</xsd:sequence>
+							<xsd:attribute name="name" type="xsd:string" />
+							<xsd:attribute name="type" type="xsd:string" />
+							<xsd:attribute name="mimetype" type="xsd:string" />
+						</xsd:complexType>
+					</xsd:element>
+					<xsd:element name="resheader">
+						<xsd:complexType>
+							<xsd:sequence>
+								<xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+							</xsd:sequence>
+							<xsd:attribute name="name" type="xsd:string" use="required" />
+						</xsd:complexType>
+					</xsd:element>
+				</xsd:choice>
+			</xsd:complexType>
+		</xsd:element>
+	</xsd:schema>
+	<resheader name="ResMimeType">
+		<value>text/microsoft-resx</value>
+	</resheader>
+	<resheader name="Version">
+		<value>1.0.0.0</value>
+	</resheader>
+	<resheader name="Reader">
+		<value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=1.0.5000.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+	</resheader>
+	<resheader name="Writer">
+		<value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=1.0.5000.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+	</resheader>
+	<data name="FileTxt">
+		<value>File</value>
+	</data>
+	<data name="NewTxt">
+		<value>New</value>
+	</data>
+	<data name="OpenTxt">
+		<value>Open</value>
+	</data>
+	<data name="SaveTxt">
+		<value>Save</value>
+	</data>
+	<data name="SaveAsTxt">
+		<value>SaveAs...</value>
+	</data>
+	<data name="ExitTxt">
+		<value>Exit</value>
+	</data>
+	<data name="ToolsTxt">
+		<value>Tools</value>
+	</data>
+	<data name="AddTxt">
+		<value>Add</value>
+	</data>
+	<data name="RemoveTxt">
+		<value>Remove</value>
+	</data>
+	<data name="NameTxt">
+		<value>Name:</value>
+	</data>
+	<data name="TypeTxt">
+		<value>Type:</value>
+	</data>
+	<data name="DecriptionTxt">
+		<value>Decription:</value>
+	</data>
+	<data name="InterfacesTxt">
+		<value>Interfaces:</value>
+	</data>
+	<data name="AddInterfaceTxt">
+		<value>Add</value>
+	</data>
+	<data name="RemoveInterfaceTxt">
+		<value>Remove</value>
+	</data>
+	<data name="PrimaryIDTxt">
+		<value>Primary ID:</value>
+	</data>
+	<data name="PrimaryIDSizeTxt">
+		<value>Size:</value>
+	</data>
+	<data name="SecondaryIDTxt">
+		<value>Secondary ID:</value>
+	</data>
+	<data name="SecondaryIDSizeTxt">
+		<value>Size:</value>
+	</data>
+	<data name="UseLNCbTxt">
+		<value>Use LN</value>
+	</data>
+	<data name="ApplyTxt">
+		<value>Apply</value>
+	</data>
+	<data name="ResetTxt">
+		<value>Reset</value>
+	</data>
+	<data name="ApplicationTxt">
+		<value>GXOBISEditor</value>
+	</data>
+	<data name="TestObisCodesTxt">
+		<value>Test OBIS codes</value>
+	</data>
+	<data name="LanguageTxt">
+		<value>Language</value>
+	</data>
+	<data name="SupportNetworkSpecificSettingsTxt">
+		<value>Support Network Specific Settings</value>
+	</data>
+</root>
