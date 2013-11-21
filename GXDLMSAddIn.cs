@@ -484,7 +484,7 @@ namespace Gurux.DLMS.AddIn
 				Trace("Read Objects\r\n");
                 try
 				{
-                    allData = ReadDataBlock(cosem, media, cosem.GetObjects(), wt);
+                    allData = ReadDataBlock(cosem, media, cosem.GetObjectsRequest(), wt);
 				}
 				catch (Exception Ex)
 				{
