@@ -48,6 +48,7 @@ using Gurux.Serial;
 using GXDLMS.ManufacturerSettings;
 using Gurux.DLMS.ManufacturerSettings;
 using Gurux.DLMS.Objects;
+using System.Text;
 
 namespace Gurux.DLMS.AddIn
 {
@@ -263,6 +264,10 @@ namespace Gurux.DLMS.AddIn
             {
                 name += " " + code.Description;
             }
+            else
+            {
+                name += " " + it.Description;
+            }
 			return name;
 		}
 
@@ -421,8 +426,15 @@ namespace Gurux.DLMS.AddIn
                 else if (cosem.Authentication == Authentication.High)
                 {
                     clientAdd = Device.ClientIDHigh;
-                } 
-                cosem.Password = Device.Password;                
+                }
+                if (!string.IsNullOrEmpty(Device.Password))
+                {
+                    cosem.Password = ASCIIEncoding.ASCII.GetBytes(Device.Password);
+                }
+                else
+                {
+                    cosem.Password = null;
+                }
                 //If network media is used check is manufacturer supporting IEC 62056-47
                 if (!Device.UseRemoteSerial && media is GXNet && Device.SupportNetworkSpecificSettings)
                 {
@@ -836,8 +848,11 @@ namespace Gurux.DLMS.AddIn
                 {
                     prop.Description = code.Description;
                 }
+                else
+                {
+                    prop.Description = it.Description;
+                }
                 prop.Name = GetName(man, cosem.UseLogicalNameReferencing, it);
-                //TODO: prop.Values = GetValues(it);
                 prop.ShortName = (UInt16)it.ShortName;
                 //Registers must read to define data type. This must done because DLMS don't tell data type.                        
                 try

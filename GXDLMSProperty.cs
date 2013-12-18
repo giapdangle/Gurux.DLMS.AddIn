@@ -62,7 +62,7 @@ namespace Gurux.DLMS.AddIn
 		/// </summary>
 		[System.ComponentModel.Category("Design"),
         System.ComponentModel.DefaultValue(DataType.String), System.ComponentModel.Description("Data type of the property.")]
-        [ReadOnly(true), ValueAccess(ValueAccessType.Show, ValueAccessType.None)]
+        [ReadOnly(true), ValueAccess(ValueAccessType.Edit, ValueAccessType.None)]
         [GXUserLevelAttribute(UserLevelType.Experienced)]
         [DataMember(IsRequired = false, EmitDefaultValue = false)]
         public DataType DLMSType

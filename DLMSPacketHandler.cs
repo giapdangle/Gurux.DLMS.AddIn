@@ -308,7 +308,14 @@ namespace Gurux.DLMS.AddIn
             bool NetConnect = !Device.UseRemoteSerial && Device.SupportNetworkSpecificSettings && Device.GXClient.Media is GXNet;
             //TODO: GXProperty.Device.KeepAliveEnabled = false;
             parser.Authentication = Device.Authentication;
-            parser.Password = Device.Password;            
+            if (!string.IsNullOrEmpty(Device.Password))
+            {
+                parser.Password = ASCIIEncoding.ASCII.GetBytes(Device.Password);
+            }
+            else
+            {
+                parser.Password = null;
+            }
             //GXCom is counting BOP, EOP and CRC.
             parser.GenerateFrame = false;
             //If Serial Number is used.	

@@ -118,7 +118,7 @@ namespace Gurux.DLMS.AddIn
                 PhysicalAddressLbl.Text = "Physical Address:";
             }
             this.PhysicalAddressTB.Value = Convert.ToDecimal(target.PhysicalAddress);
-            this.LocicalAddressTB.Value = target.LogicalAddress;
+            this.LogicalAddressTB.Value = target.LogicalAddress;
         }        
     }
 }

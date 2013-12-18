@@ -36,8 +36,8 @@
             this.authLevelCb = new System.Windows.Forms.ComboBox();
             this.authLevelLbl = new System.Windows.Forms.Label();
             this.AddressingGB = new System.Windows.Forms.GroupBox();
-            this.LocicalAddressTB = new System.Windows.Forms.NumericUpDown();
-            this.LocicalAddressLbl = new System.Windows.Forms.Label();
+            this.LogicalAddressTB = new System.Windows.Forms.NumericUpDown();
+            this.LogicalAddressLbl = new System.Windows.Forms.Label();
             this.AddressTypeCB = new System.Windows.Forms.ComboBox();
             this.ServerIDTypeLbl = new System.Windows.Forms.Label();
             this.PhysicalAddressTB = new System.Windows.Forms.NumericUpDown();
@@ -45,7 +45,7 @@
             this.StartProtocolCB = new System.Windows.Forms.ComboBox();
             this.AuthenticationGB.SuspendLayout();
             this.AddressingGB.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.LocicalAddressTB)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.LogicalAddressTB)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.PhysicalAddressTB)).BeginInit();
             this.SuspendLayout();
             // 
@@ -125,8 +125,8 @@
             // 
             this.AddressingGB.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
-            this.AddressingGB.Controls.Add(this.LocicalAddressTB);
-            this.AddressingGB.Controls.Add(this.LocicalAddressLbl);
+            this.AddressingGB.Controls.Add(this.LogicalAddressTB);
+            this.AddressingGB.Controls.Add(this.LogicalAddressLbl);
             this.AddressingGB.Controls.Add(this.AddressTypeCB);
             this.AddressingGB.Controls.Add(this.ServerIDTypeLbl);
             this.AddressingGB.Controls.Add(this.PhysicalAddressTB);
@@ -138,34 +138,34 @@
             this.AddressingGB.TabStop = false;
             this.AddressingGB.Text = "Addressing";
             // 
-            // LocicalAddressTB
+            // LogicalAddressTB
             // 
-            this.LocicalAddressTB.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+            this.LogicalAddressTB.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
                         | System.Windows.Forms.AnchorStyles.Right)));
-            this.LocicalAddressTB.Hexadecimal = true;
-            this.LocicalAddressTB.Location = new System.Drawing.Point(107, 72);
-            this.LocicalAddressTB.Maximum = new decimal(new int[] {
+            this.LogicalAddressTB.Hexadecimal = true;
+            this.LogicalAddressTB.Location = new System.Drawing.Point(107, 72);
+            this.LogicalAddressTB.Maximum = new decimal(new int[] {
             0,
             1,
             0,
             0});
-            this.LocicalAddressTB.Name = "LocicalAddressTB";
-            this.LocicalAddressTB.Size = new System.Drawing.Size(90, 20);
-            this.LocicalAddressTB.TabIndex = 6;
-            this.LocicalAddressTB.Value = new decimal(new int[] {
+            this.LogicalAddressTB.Name = "LogicalAddressTB";
+            this.LogicalAddressTB.Size = new System.Drawing.Size(90, 20);
+            this.LogicalAddressTB.TabIndex = 6;
+            this.LogicalAddressTB.Value = new decimal(new int[] {
             1,
             0,
             0,
             0});
             // 
-            // LocicalAddressLbl
+            // LogicalAddressLbl
             // 
-            this.LocicalAddressLbl.AutoSize = true;
-            this.LocicalAddressLbl.Location = new System.Drawing.Point(11, 74);
-            this.LocicalAddressLbl.Name = "LocicalAddressLbl";
-            this.LocicalAddressLbl.Size = new System.Drawing.Size(85, 13);
-            this.LocicalAddressLbl.TabIndex = 24;
-            this.LocicalAddressLbl.Text = "Locical Address:";
+            this.LogicalAddressLbl.AutoSize = true;
+            this.LogicalAddressLbl.Location = new System.Drawing.Point(11, 74);
+            this.LogicalAddressLbl.Name = "LogicalAddressLbl";
+            this.LogicalAddressLbl.Size = new System.Drawing.Size(85, 13);
+            this.LogicalAddressLbl.TabIndex = 24;
+            this.LogicalAddressLbl.Text = "Logical Address:";
             // 
             // AddressTypeCB
             // 
@@ -243,7 +243,7 @@
             this.AuthenticationGB.PerformLayout();
             this.AddressingGB.ResumeLayout(false);
             this.AddressingGB.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.LocicalAddressTB)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.LogicalAddressTB)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.PhysicalAddressTB)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -260,8 +260,8 @@
         private System.Windows.Forms.ComboBox authLevelCb;
         private System.Windows.Forms.Label authLevelLbl;
         private System.Windows.Forms.GroupBox AddressingGB;
-        private System.Windows.Forms.NumericUpDown LocicalAddressTB;
-        private System.Windows.Forms.Label LocicalAddressLbl;
+        private System.Windows.Forms.NumericUpDown LogicalAddressTB;
+        private System.Windows.Forms.Label LogicalAddressLbl;
         private System.Windows.Forms.ComboBox AddressTypeCB;
         private System.Windows.Forms.Label ServerIDTypeLbl;
         private System.Windows.Forms.NumericUpDown PhysicalAddressTB;

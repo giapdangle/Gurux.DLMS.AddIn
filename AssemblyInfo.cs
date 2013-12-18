@@ -76,5 +76,5 @@ using System.Runtime.CompilerServices;
 [assembly: AssemblyDelaySign(false)]
 [assembly: AssemblyKeyFile("")]
 [assembly: AssemblyKeyName("")]
-[assembly: AssemblyVersion("7.0.6.1")]
-[assembly: AssemblyFileVersion("7.0.6.1")]
+[assembly: AssemblyVersion("7.0.7.1")]
+[assembly: AssemblyFileVersion("7.0.7.1")]
