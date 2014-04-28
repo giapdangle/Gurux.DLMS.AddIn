@@ -425,6 +425,18 @@ namespace Gurux.DLMS.AddIn
             else
             {
                 ((GXDLMSDevice)m_Device).PhysicalAddress = Convert.ChangeType(this.PhysicalAddressTB.Value, target.PhysicalAddress.GetType());
+                if (target.PhysicalAddress.GetType() == typeof(byte))
+                {
+                    ((GXDLMSDevice)m_Device).PhysicalAddressSize = 1;
+                }
+                else if (target.PhysicalAddress.GetType() == typeof(UInt16))
+                {
+                    ((GXDLMSDevice)m_Device).PhysicalAddressSize = 2;
+                }
+                if (target.PhysicalAddress.GetType() == typeof(UInt32))
+                {
+                    ((GXDLMSDevice)m_Device).PhysicalAddressSize = 4;
+                }
             }
             
             ((GXDLMSDevice)m_Device).LogicalAddress = Convert.ToInt32(this.LogicalAddressTB.Value);

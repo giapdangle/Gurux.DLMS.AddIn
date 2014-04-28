@@ -172,7 +172,10 @@ namespace Gurux.DLMS.AddIn
 				{
 					if (ShortName == 0)
 		            {
-		                tasks.Add(new GXTask(this, "ShortName", "Short name is unknown."));
+                        if (this.Parent == null || !(this.Parent.Parent is GXDLMSTable))
+                        {
+                            tasks.Add(new GXTask(this, "ShortName", "Short name is unknown."));
+                        }
 		            }
 				}
 			}

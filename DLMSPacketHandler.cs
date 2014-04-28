@@ -26,7 +26,7 @@ namespace Gurux.DLMS.AddIn
         GXDLMSClient parser = null;
         int ReceivedRows = 0, AARQRequestPos, LastNotifiedTransactionProgress = 0;        
         byte[] ReceivedData;
-        int IsMoreDataAvailable = 0;
+        RequestTypes IsMoreDataAvailable = RequestTypes.None;
         bool TryParse = false, SupportNetworkSpecificSettings;
         int[] ColumnIndexs = null;
 
@@ -182,7 +182,7 @@ namespace Gurux.DLMS.AddIn
             parser = new Gurux.DLMS.GXDLMSClient();
             GXDLMSDevice device = sender as GXDLMSDevice;
             parser.UseLogicalNameReferencing = device.UseLogicalNameReferencing;
-            SupportNetworkSpecificSettings = device.SupportNetworkSpecificSettings;
+            SupportNetworkSpecificSettings = device.SupportNetworkSpecificSettings && device.GXClient.Media is GXNet;
             if (SupportNetworkSpecificSettings)
             {
                 parser.InterfaceType = Gurux.DLMS.InterfaceType.Net;
@@ -284,18 +284,17 @@ namespace Gurux.DLMS.AddIn
                 lock (media.Synchronous)
                 {
                     media.Send(new byte[] { 0x06, controlCharacter, (byte)baudrate, ModeControlCharacter, 0x8D, 0x0A }, null);
+                    System.Threading.Thread.Sleep(1000);
+                    serial.BaudRate = bitrate;
                     ReceiveParameters<byte[]> args = new ReceiveParameters<byte[]>();
                     args.Eop = (byte)0x0A;
                     args.WaitTime = 500;
                     media.Receive(args);
                 }
-                if (serial != null)
-                {
-                    serial.BaudRate = bitrate;
-                    serial.DataBits = 8;
-                    serial.Parity = System.IO.Ports.Parity.None;
-                    serial.StopBits = System.IO.Ports.StopBits.One;
-                }                
+                serial.DataBits = 8;
+                serial.Parity = System.IO.Ports.Parity.None;
+                serial.StopBits = System.IO.Ports.StopBits.One;
+                serial.ResetSynchronousBuffer();
             }            
         }
 
@@ -373,9 +372,11 @@ namespace Gurux.DLMS.AddIn
             if (SupportNetworkSpecificSettings)
             {
                 GXPacket.ClearData();
-                return;
             }
-            GXPacket.AppendData(parser.SNRMRequest());
+            else
+            {
+                GXPacket.AppendData(parser.SNRMRequest());
+            }
         }
 
         // Confirm that the secondary received and acted on an SNRM or DISC command.
@@ -529,6 +530,10 @@ namespace Gurux.DLMS.AddIn
 
         public void ExecuteSendCommand(object sender, string command, GXPacket packet)
         {
+            if (command != "ReadAARQNext" && command != "ReadNextInfo" && command != "ReadNext")
+            {
+                IsMoreDataAvailable = RequestTypes.None;
+            }
             GXDLMSProperty prop = sender as GXDLMSProperty;
             if (command == "InitRead")
             {
@@ -585,7 +590,6 @@ namespace Gurux.DLMS.AddIn
             }
             else if (command == "ReadTableInfo")
             {
-                IsMoreDataAvailable = 0;
                 if (this.Extension != null)
                 {
                     ReceivedData = null;
@@ -625,33 +629,30 @@ namespace Gurux.DLMS.AddIn
             else if (command == "ReadNextInfo") //Read next part of the data or next item.
             {
                 //Read next extra info.
-                if (IsMoreDataAvailable == (int) Gurux.DLMS.RequestTypes.None)
+                if (IsMoreDataAvailable == Gurux.DLMS.RequestTypes.None)
                 {                                        
                     GXObisCode item = ExtraInfo.Keys.ElementAt(ExtraInfoPos);
                     object data = parser.Read(item.LogicalName, item.ObjectType, item.AttributeIndex)[0];
                     packet.AppendData(data);
                 }
-                else //TRead next part of the data.
+                else //Read next part of the data.
                 {
                     Gurux.DLMS.RequestTypes readItem = Gurux.DLMS.RequestTypes.Frame;
-                    if (IsMoreDataAvailable % 2 == 0)
+                    if ((IsMoreDataAvailable & RequestTypes.Frame) == 0)
                     {
                         readItem = Gurux.DLMS.RequestTypes.DataBlock;
                     }
-                    IsMoreDataAvailable -= (int)readItem;
                     packet.AppendData(parser.ReceiverReady(readItem));
                 }
             }
             else if (command == "ReadNext") //Read next part of data.
             {
                 Gurux.DLMS.RequestTypes readItem = Gurux.DLMS.RequestTypes.Frame;
-                if (IsMoreDataAvailable % 2 == 0)
+                if ((IsMoreDataAvailable & RequestTypes.Frame) == 0)
                 {
                     readItem = Gurux.DLMS.RequestTypes.DataBlock;
                 }
-                IsMoreDataAvailable -= (int) readItem;
                 packet.AppendData(parser.ReceiverReady(readItem));
-
             }
             else if (command == "ReadTableData") //Read next part of data.
             {
@@ -858,30 +859,45 @@ namespace Gurux.DLMS.AddIn
             {
                 byte[] data = packet.ExtractPacket();
                 CheckErrors(data, false);
-                IsMoreDataAvailable += (int)parser.GetDataFromPacket(data, ref ReceivedData);
-                return IsMoreDataAvailable == (int) Gurux.DLMS.RequestTypes.None;
+                RequestTypes tmp = parser.GetDataFromPacket(data, ref ReceivedData);
+                if (tmp == RequestTypes.None && IsMoreDataAvailable != RequestTypes.None)
+                {
+                    if ((IsMoreDataAvailable & RequestTypes.Frame) != 0)
+                    {
+                        IsMoreDataAvailable &= ~RequestTypes.Frame;
+                    }
+                    else
+                    {
+                        IsMoreDataAvailable &= ~RequestTypes.DataBlock;
+                    }
+                }
+                else
+                {
+                    IsMoreDataAvailable |= tmp;
+                }
+                return IsMoreDataAvailable == Gurux.DLMS.RequestTypes.None;
             }
             else if (command == "IsAllTableInfoReceived")//Is all data read.
             {
                 byte[] data = packet.ExtractPacket();
                 CheckErrors(data, true);
                 RequestTypes tmp = parser.GetDataFromPacket(data, ref ReceivedData);
-                if (tmp == RequestTypes.None)
+                if (tmp == RequestTypes.None && IsMoreDataAvailable != RequestTypes.None)
                 {
-                    if (IsMoreDataAvailable == (int)RequestTypes.DataBlock)
+                    if ((IsMoreDataAvailable & RequestTypes.Frame) != 0)
                     {
-                        IsMoreDataAvailable = 0;
+                        IsMoreDataAvailable &= ~RequestTypes.Frame;
                     }
-                    else if (IsMoreDataAvailable > 0)
+                    else
                     {
-                        --IsMoreDataAvailable;
+                        IsMoreDataAvailable &= ~RequestTypes.DataBlock;
                     }
                 }
                 else
                 {
-                    IsMoreDataAvailable |= (int)tmp;
+                    IsMoreDataAvailable |= tmp;
                 }
-                if (IsMoreDataAvailable != (int)Gurux.DLMS.RequestTypes.None)
+                if (IsMoreDataAvailable != Gurux.DLMS.RequestTypes.None)
                 {                    
                     return true;
                 }
@@ -904,22 +920,22 @@ namespace Gurux.DLMS.AddIn
                 //Clear packet so we are not saved it for later use.
                 packet.Clear();
                 RequestTypes tmp = parser.GetDataFromPacket(data, ref ReceivedData);
-                if (tmp == RequestTypes.None)
+                if (tmp == RequestTypes.None && IsMoreDataAvailable != RequestTypes.None)
                 {
-                    if (IsMoreDataAvailable == (int)RequestTypes.DataBlock)
+                    if ((IsMoreDataAvailable & RequestTypes.Frame) != 0)
                     {
-                        IsMoreDataAvailable = 0;
+                        IsMoreDataAvailable &= ~RequestTypes.Frame;
                     }
-                    else if (IsMoreDataAvailable > 0)
+                    else
                     {
-                        --IsMoreDataAvailable;
+                        IsMoreDataAvailable &= ~RequestTypes.DataBlock;
                     }
                 }
                 else
                 {
-                    IsMoreDataAvailable |= (int)tmp;
+                    IsMoreDataAvailable |= tmp;
                 }
-                bool complete = IsMoreDataAvailable == (int)Gurux.DLMS.RequestTypes.None;
+                bool complete = IsMoreDataAvailable == Gurux.DLMS.RequestTypes.None;
                 //Notify only percent to increase traffic.
                 int maxValue = parser.GetMaxProgressStatus(ReceivedData);
                 //Notify progess.
@@ -954,7 +970,7 @@ namespace Gurux.DLMS.AddIn
                     }
                     Array reply = (Array)parser.TryGetValue(ReceivedData);
                     // If there is data.
-                    if (reply.Length != 0)
+                    if (reply != null && reply.Length != 0)
                     {
                         int count = table2.RowCount;
                         List<object[]> rows = new List<object[]>(reply.Length);

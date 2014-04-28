@@ -200,15 +200,50 @@ namespace Gurux.DLMS.AddIn
             get;
             set;
         }
-		
+
+        object m_PhysicalAddress;
+
         [ValueAccess(ValueAccessType.Edit, ValueAccessType.Edit)]
         [Category("Design")]
         [DataMember(IsRequired=false, EmitDefaultValue = false)]
         public object PhysicalAddress
 		{
+            get
+            {
+                if (m_PhysicalAddress is string)
+                {
+                    if (PhysicalAddressSize == 1)
+                    {
+                        m_PhysicalAddress = Convert.ToByte(m_PhysicalAddress);
+                    }
+                    else if (PhysicalAddressSize == 2)
+                    {
+                        m_PhysicalAddress = Convert.ToUInt16(m_PhysicalAddress);
+
+                    }
+                    else if (PhysicalAddressSize == 4)
+                    {
+                        m_PhysicalAddress = Convert.ToUInt32(m_PhysicalAddress);
+                    }
+                }
+                return m_PhysicalAddress;
+            }
+            set
+            {
+                m_PhysicalAddress = value;
+            }
+		}
+
+        /// <summary>
+        /// Size of physical address.
+        /// </summary>
+        [Category("Design")]
+        [DataMember(IsRequired = false, EmitDefaultValue = false)]
+        public int PhysicalAddressSize
+        {
             get;
             set;
-		}
+        }
 
         [Browsable(false)]
         [DataMember(IsRequired=false, EmitDefaultValue = false)]

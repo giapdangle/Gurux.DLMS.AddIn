@@ -319,7 +319,7 @@ namespace Gurux.DLMS.AddIn
                         GXSerial serial = media as GXSerial;
                         serial.Eop = null;
                         //Init IEC connection. This must done first with serial connections.
-                        string str = "/?!\r\n";                        
+                        string str = "/?" + Device.SerialNumber + "!\r\n";                        
                         ReceiveParameters<string> args = new ReceiveParameters<string>();
                         args.Eop = Terminator;
                         args.WaitTime = wt;                        
@@ -463,7 +463,7 @@ namespace Gurux.DLMS.AddIn
                     }                    
                 }
                 object allData = null;
-				data = cosem.SNRMRequest();
+                data = cosem.SNRMRequest();
 				//General Network connection don't need SNRMRequest.
 				if (data != null)
 				{
@@ -985,10 +985,9 @@ namespace Gurux.DLMS.AddIn
                 Device.Categories.Add(item);
                 return item;
             }
-            else
+            else if (it.ObjectType != ObjectType.ProfileGeneric)
             {
-                System.Diagnostics.Debug.WriteLine("Unknown Interface type: " + it.ObjectType.ToString());
-                Trace("Unknown Interface type: " + it.ObjectType.ToString() + "\r\n");
+                System.Diagnostics.Debug.WriteLine("Unknown Interface type: " + it.ObjectType.ToString());                
             }
             return null;
         }

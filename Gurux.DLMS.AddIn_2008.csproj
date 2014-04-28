@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="3.5">
   <PropertyGroup>
     <ProjectType>Local</ProjectType>
     <ProductVersion>9.0.30729</ProductVersion>
@@ -29,7 +29,7 @@
     </FileUpgradeFlags>
     <UpgradeBackupLocation>
     </UpgradeBackupLocation>
-    <OldToolsVersion>3.5</OldToolsVersion>
+    <OldToolsVersion>2.0</OldToolsVersion>
     <PublishUrl>http://localhost/DLMS/</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Web</InstallFrom>
@@ -204,29 +204,29 @@
     <WCFMetadata Include="Service References\" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\GXCom\Gurux.Device\Development\Gurux.Device_2010.csproj">
+    <ProjectReference Include="..\..\GXCom\Gurux.Device\Development\Gurux.Device_2008.csproj">
       <Project>{C4BB249E-A56A-4675-B406-864280D77BF3}</Project>
-      <Name>Gurux.Device_2010</Name>
+      <Name>Gurux.Device_2008</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\GXCom\Gurux.Communication\Development\Gurux.Communication_2010.csproj">
+    <ProjectReference Include="..\..\GXCom\Gurux.Communication\Development\Gurux.Communication_2008.csproj">
       <Project>{BA05698E-DDAA-4D04-A6F0-6BC571805179}</Project>
-      <Name>Gurux.Communication_2010</Name>
+      <Name>Gurux.Communication_2008</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\GXCom\GXMedias\Gurux.Net\Development\Gurux.Net_2010.csproj">
+    <ProjectReference Include="..\..\GXCom\GXMedias\Gurux.Net\Development\Gurux.Net_2008.csproj">
       <Project>{CB63EA09-D6BC-4B1D-927E-83041A222D54}</Project>
-      <Name>Gurux.Net_2010</Name>
+      <Name>Gurux.Net_2008</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\GXCom\Gurux.Common\Development\Gurux.Common_2010.csproj">
+    <ProjectReference Include="..\..\GXCom\Gurux.Common\Development\Gurux.Common_2008.csproj">
       <Project>{749652D4-4779-4869-AD81-5211A661CD1B}</Project>
-      <Name>Gurux.Common_2010</Name>
+      <Name>Gurux.Common_2008</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\GXCom\GXMedias\Gurux.Serial\Development\Gurux.Serial_2010.csproj">
+    <ProjectReference Include="..\..\GXCom\GXMedias\Gurux.Serial\Development\Gurux.Serial_2008.csproj">
       <Project>{D07A57D7-F2E7-4A0F-95D1-EF3B1FD688F0}</Project>
-      <Name>Gurux.Serial_2010</Name>
+      <Name>Gurux.Serial_2008</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\GXCom\Protocols\Gurux.DLMS.Net\Development\Gurux.DLMS_2010.csproj">
+    <ProjectReference Include="..\..\GXCom\Protocols\Gurux.DLMS.Net\Development\Gurux.DLMS_2008.csproj">
       <Project>{EFD71BFF-AD54-45ED-B473-305813C2F83A}</Project>
-      <Name>Gurux.DLMS_2010</Name>
+      <Name>Gurux.DLMS_2008</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
