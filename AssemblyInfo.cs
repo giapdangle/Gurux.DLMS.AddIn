@@ -51,5 +51,5 @@ using System.Runtime.CompilerServices;
 [assembly: AssemblyDelaySign(false)]
 [assembly: AssemblyKeyFile("")]
 [assembly: AssemblyKeyName("")]
-[assembly: AssemblyVersion("1.1.19.1")]
-[assembly: AssemblyFileVersion("1.1.19.1")]
+[assembly: AssemblyVersion("7.1.19.1")]
+[assembly: AssemblyFileVersion("7.1.19.1")]

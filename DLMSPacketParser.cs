@@ -87,6 +87,12 @@ namespace Gurux.DLMS.AddIn
             if (!parser.IsDLMSPacketComplete(replyData))
             {
                 e.Accept = false;
+                //If echo
+                byte[] sendData = e.Send.ExtractPacket();
+                if (Gurux.Common.GXCommon.EqualBytes(sendData, replyData))
+                {
+                    e.Description = "Echo received.";
+                }
             }
             else
             {
@@ -99,8 +105,7 @@ namespace Gurux.DLMS.AddIn
                     throw new GXDLMSException(error);
                 }
                 else
-                {
-                    //If echo
+                {                    
                     e.Accept = parser.IsReplyPacket(sendData, replyData);
                 }
             }

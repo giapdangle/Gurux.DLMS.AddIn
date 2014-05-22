@@ -9,9 +9,16 @@ using System.ComponentModel;
 
 namespace Gurux.DLMS.AddIn
 {
+    /// <summary>
+    /// Cosem profile generic data.
+    /// </summary>
     [GXReadMessage("ReadTableInfo", "UpdateTableInfo", "IsAllTableInfoReceived", "ReadNextInfo", Index = 1)]
+    //Read table columns.
     [GXReadMessage("ReadTableContent", "UpdateTableContent", "IsAllTableDataReceived", "ReadNext", Index = 2)]
-    [GXReadMessage("ReadTableData", "UpdateTableData", "IsAllTableDataReceived", "ReadNext", Index = 3)]
+    //Read capture period of the table.
+    [GXReadMessage("ReadCapturePeriod", "UpdateCapturePeriod", Index = 3)]    
+    //Read table data.
+    [GXReadMessage("ReadTableData", "UpdateTableData", "IsAllTableDataReceived", "ReadNext", Index = 4)]
     [DataContract()]
 	[TypeConverter(typeof(GXDLMSObjectTypeConverter))]
     public class GXDLMSTable : GXTable, IGXPartialRead
@@ -46,6 +53,52 @@ namespace Gurux.DLMS.AddIn
         [DataMember(IsRequired = false, EmitDefaultValue = false)]
         [ReadOnly(false), ValueAccess(ValueAccessType.Show, ValueAccessType.None)]
         public string LogicalName
+        {
+            get;
+            set;
+        }
+
+        /// <summary>
+        /// How often values are captured.
+        /// </summary>
+        [DataMember(IsRequired = false, EmitDefaultValue = false)]
+        [ReadOnly(false), ValueAccess(ValueAccessType.Show, ValueAccessType.Show)]
+        public int CapturePeriod
+        {
+            get;
+            set;
+        }
+
+        /// <summary>
+        /// How columns are sorted.
+        /// </summary>       
+        [DataMember(IsRequired = false, EmitDefaultValue = false)]
+        [ReadOnly(false), ValueAccess(ValueAccessType.Show, ValueAccessType.Show)]
+        [DefaultValue(Gurux.DLMS.Objects.SortMethod.FiFo)]
+        public Gurux.DLMS.Objects.SortMethod SortMethod
+        {
+            get;
+            set;
+        }
+
+
+        /// <summary>
+        /// Entries (rows) in Use.
+        /// </summary>
+        [DataMember(IsRequired = false, EmitDefaultValue = false)]
+        [ReadOnly(false), ValueAccess(ValueAccessType.Show, ValueAccessType.Show)]
+        public int EntriesInUse
+        {
+            get;
+            set;
+        }
+
+        /// <summary>
+        /// Maximum Entries (rows) count.
+        /// </summary>
+        [DataMember(IsRequired = false, EmitDefaultValue = false)]
+        [ReadOnly(false), ValueAccess(ValueAccessType.Show, ValueAccessType.Show)]
+        public int ProfileEntries
         {
             get;
             set;

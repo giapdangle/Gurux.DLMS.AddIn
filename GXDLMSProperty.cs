@@ -71,9 +71,32 @@ namespace Gurux.DLMS.AddIn
             set;
 		}
 
+        /// <summary>
+        /// The UI data type of the property, described in the template file.
+        /// </summary>
+        /// <remarks>
+        /// UIDataType handles serialization.
+        /// </remarks>
+        [System.ComponentModel.Category("Design"), DefaultValue(null),
+        System.ComponentModel.Description("The UI data type of the property, described in the template file.")]
+        [ValueAccess(ValueAccessType.Edit, ValueAccessType.None)]
+        [Editor(typeof(GXValueTypeEditor), typeof(System.Drawing.Design.UITypeEditor))]
+        [System.Xml.Serialization.XmlIgnore()]
+        new public DataType ValueType
+        {
+            get
+            {
+                return GXDLMS.Common.GXHelpers.GetDLMSDataType(base.ValueType);
+            }
+            set
+            {
+                base.ValueType = GXDLMS.Common.GXHelpers.GetDataType(value);
+            }
+        }
+
 		/// <summary>
 		/// LN Index where data is read.
-		/// </summary>
+		/// </summary>        
 		[System.ComponentModel.Category("Design"),
         System.ComponentModel.DefaultValue(1),
         System.ComponentModel.Description("Attribute ordinal Index where data is read.")]

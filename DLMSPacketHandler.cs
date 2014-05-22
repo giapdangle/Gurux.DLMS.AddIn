@@ -17,14 +17,19 @@ namespace Gurux.DLMS.AddIn
 {
     public class DLMSPacketHandler : Gurux.Device.IGXPacketHandler
     {
+        Gurux.DLMS.Objects.GXDLMSProfileGeneric pg = null;
 		Dictionary<GXObisCode, object> ExtraInfo = new Dictionary<GXObisCode, object>();
         int ExtraInfoPos = 0;
-        GXDLMSObjectCollection TableColumns = null;
+        List<GXKeyValuePair<GXDLMSObject, GXDLMSCaptureObject>> TableColumns = null;
         IGXManufacturerExtension Extension;
         Gurux.DLMS.DataType ObjectDataType;
         Array AARQRequest;
         GXDLMSClient parser = null;
-        int ReceivedRows = 0, AARQRequestPos, LastNotifiedTransactionProgress = 0;        
+        int ReceivedRows = 0, AARQRequestPos;
+        /// <summary>
+        /// All transactions are not notified because it's slow with DLMS. Only full percents are notified.
+        /// </summary>
+        int LastNotifiedTransactionProgress = 0;        
         byte[] ReceivedData;
         RequestTypes IsMoreDataAvailable = RequestTypes.None;
         bool TryParse = false, SupportNetworkSpecificSettings;
@@ -76,103 +81,6 @@ namespace Gurux.DLMS.AddIn
         
         public object DeviceValueToUIValue(Gurux.Device.GXProperty sender, object value)
         {
-            GXDLMSProperty prop = sender as GXDLMSProperty;
-            if (sender.ValueType == typeof(DateTime) && value is byte[])
-            {
-                byte[] arr = (byte[])value;
-                int wYear, wMonth, wDay, wHour, wMin, wSecond;
-                if (arr.Length < 10)
-                {
-                    throw new Exception("DateTime conversion failed. Invalid DLMS format.");
-                }
-                //If Year is not used.
-                if (arr[0] == 0xFF)
-                {
-                    return DateTime.MinValue;
-                }
-                else
-                {
-                    if (arr.Length == 10)
-                    {
-                        wYear = arr[1] * 0x100 + arr[0];
-                    }
-                    else
-                    {
-                        wYear = arr[0] * 0x100 + arr[1];
-                    }
-                }
-                wMonth = arr[2];
-                //If month is not used.
-                if (wMonth == 0xFF)
-                {
-                    wMonth = 0;
-                }
-                wDay = arr[3];
-                //If days are not used.                
-                if (wDay == 0xFF)
-                {
-                    wDay = 0;
-                }
-                wHour = arr[5];
-                //If hours are not used.
-                if (wHour == 0xFF)
-                {
-                    wHour = 0;
-                }
-                wMin = arr[6];
-                //If minutes are not used.
-                if (wMin == 0xFF)
-                {
-                    wMin = 0;
-                }
-                wSecond = arr[7];
-                //If seconds are not used.
-                if (wSecond == 0xFF)
-                {
-                    wSecond = 0;
-                }
-                DateTimeSkips skip = DateTimeSkips.None;
-                if (wMonth == 0)
-                {
-                    skip |= DateTimeSkips.Month;
-                    wMonth = 1;
-                }
-                if (wDay == 0)
-                {
-                    skip |= DateTimeSkips.Day;
-                    wDay = 1;
-                }
-                DateTime dt = new DateTime(wYear, wMonth, wDay, wHour, wMin, wSecond);
-                //Millisecond property is used to save data what fields are skipped...
-                return dt.AddMilliseconds((double)skip);
-            }
-            if (sender.ValueType == typeof(string) && value is byte[])
-            {
-                return ASCIIEncoding.ASCII.GetString((byte[])value);
-            }
-            //If logical name.
-            if (prop.AttributeOrdinal == 1 && value is byte[])
-            {
-                StringBuilder str = new StringBuilder(20);                
-                foreach (byte it in (byte[])value)
-                {                    
-                    str.Append(it.ToString());
-                    str.Append(".");
-                }
-                return str.ToString(0, str.Length - 2);                
-            }
-            if (sender is GXDLMSRegister)
-            {
-                double scaler = ((GXDLMSRegister)sender).Scaler;
-                if (scaler != 0)
-                {
-                    value = Convert.ToDouble(value) * scaler;
-                }
-            }
-            if (value != null && value.GetType().IsArray)
-            {
-                value = GetArrayAsString(value);
-            }
             return value;
         }
 
@@ -182,10 +90,15 @@ namespace Gurux.DLMS.AddIn
             parser = new Gurux.DLMS.GXDLMSClient();
             GXDLMSDevice device = sender as GXDLMSDevice;
             parser.UseLogicalNameReferencing = device.UseLogicalNameReferencing;
-            SupportNetworkSpecificSettings = device.SupportNetworkSpecificSettings && device.GXClient.Media is GXNet;
+            Gurux.Common.IGXMedia media = device.GXClient.Media as Gurux.Common.IGXMedia;
+            SupportNetworkSpecificSettings = device.SupportNetworkSpecificSettings && media is GXNet;            
             if (SupportNetworkSpecificSettings)
             {
                 parser.InterfaceType = Gurux.DLMS.InterfaceType.Net;
+            }
+            else
+            {
+                media.Eop = (byte)0x7E;
             }
             if (device.Manufacturers == null)
             {
@@ -201,14 +114,12 @@ namespace Gurux.DLMS.AddIn
             {
                 Type t = Type.GetType(man.Extension);
                 Extension = Activator.CreateInstance(t) as IGXManufacturerExtension;
-            }
-
-            Gurux.Common.IGXMedia media = device.GXClient.Media as Gurux.Common.IGXMedia;
+            }            
             if (media is GXSerial && device.StartProtocol == StartProtocolType.IEC)
             {                                
                 byte Terminator = 0xA;
-                GXSerial serial = media as GXSerial;                
-                serial.Eop = null;
+                GXSerial serial = media as GXSerial;
+                serial.Eop = Terminator;
                 ReceiveParameters<string> p = new ReceiveParameters<string>()
                 {
                     Eop = Terminator,                    
@@ -295,6 +206,7 @@ namespace Gurux.DLMS.AddIn
                 serial.Parity = System.IO.Ports.Parity.None;
                 serial.StopBits = System.IO.Ports.StopBits.One;
                 serial.ResetSynchronousBuffer();
+                serial.Eop = (byte)0x7E;
             }            
         }
 
@@ -390,7 +302,8 @@ namespace Gurux.DLMS.AddIn
         {
             GXDLMSDevice device = sender as GXDLMSDevice;
             byte[] data = packet.ExtractPacket();
-            parser.ParseAAREResponse(data);
+            parser.ParseAAREResponse(data);            
+            //parser.Objects.Add
             // Show limits as parameters.    
             /*
             if (parser.UseLogicalNameReferencing)
@@ -439,6 +352,11 @@ namespace Gurux.DLMS.AddIn
             ++AARQRequestPos;
         }
 
+        /// <summary>
+        /// Generate read message for selected property.
+        /// </summary>
+        /// <param name="property"></param>
+        /// <param name="pack"></param>
         void ReadData(Gurux.Device.GXProperty property, GXPacket pack)
         {
             GXDLMSProperty prop = property as GXDLMSProperty;
@@ -607,6 +525,23 @@ namespace Gurux.DLMS.AddIn
                         packet.AppendData(parser.Read(item.LogicalName, item.ObjectType, item.AttributeIndex)[0]);
                     }
                 }
+            }
+            else if (command == "ReadCapturePeriod")
+            {
+                ReceivedData = null;                
+                GXDLMSTable table = sender as GXDLMSTable;
+                //Capture period is read only once.
+                if (table.CapturePeriod == 0)
+                {
+                    if (parser.UseLogicalNameReferencing)
+                    {
+                        packet.AppendData(parser.Read(table.LogicalName, Gurux.DLMS.ObjectType.ProfileGeneric, 4)[0]);
+                    }
+                    else
+                    {
+                        packet.AppendData(parser.Read(table.ShortName, Gurux.DLMS.ObjectType.ProfileGeneric, 4)[0]);
+                    }
+                }
             }                
             else if (command == "ReadTableContent")
             {
@@ -656,6 +591,30 @@ namespace Gurux.DLMS.AddIn
             }
             else if (command == "ReadTableData") //Read next part of data.
             {
+                pg = Gurux.DLMS.GXDLMSClient.CreateObject(ObjectType.ProfileGeneric) as Gurux.DLMS.Objects.GXDLMSProfileGeneric;
+                GXDLMSTable table2 = sender as GXDLMSTable;
+                pg.CapturePeriod = table2.CapturePeriod;
+                foreach (GXDLMSProperty col in table2.Columns)
+                {
+                    GXDLMSObject item = Gurux.DLMS.GXDLMSClient.CreateObject(col.ObjectType);
+                    item.SetDataType(col.AttributeOrdinal, col.DLMSType);
+                    item.SetUIDataType(col.AttributeOrdinal, col.ValueType);
+                    item.LogicalName = col.LogicalName;
+                    //Update scaler for register.
+                    if (col is GXDLMSRegister && col.AttributeOrdinal == 2)
+                    {
+                        GXDLMSRegister r = col as GXDLMSRegister;
+                        if (item.ObjectType == ObjectType.DemandRegister)
+                        {
+                            (item as Gurux.DLMS.Objects.GXDLMSDemandRegister).Scaler = r.Scaler;
+                        }
+                        else
+                        {
+                            (item as Gurux.DLMS.Objects.GXDLMSRegister).Scaler = r.Scaler;
+                        }
+                    }
+                    pg.CaptureObjects.Add(new GXKeyValuePair<GXDLMSObject, GXDLMSCaptureObject>(item, new GXDLMSCaptureObject(col.AttributeOrdinal, 0)));
+                }
                 LastNotifiedTransactionProgress = 0;
                 GXDLMSTable table = sender as GXDLMSTable;                
                 ReceivedRows = 0;
@@ -675,9 +634,12 @@ namespace Gurux.DLMS.AddIn
                 string ClockLN = "0.0.1.0.0.255";
                 if (partialRead.Type == PartialReadType.All)
                 {
-                    data = parser.Read(name, ObjectType.ProfileGeneric, 2);
-                    //data = parser.ReadRowsByRange(name, ClockLN, Gurux.DLMS.ObjectType.Clock, Version, DateTime.MinValue, DateTime.MaxValue);                    
+                    data = parser.Read(name, ObjectType.ProfileGeneric, 2)[0];
                 }
+                else if (partialRead.Type == PartialReadType.Entry)
+                {
+                    data = parser.ReadRowsByEntry(name, Convert.ToInt32((table as IGXPartialRead).Start), Convert.ToInt32((table as IGXPartialRead).End));
+                }                
                 else
                 {                    
                     DateTime starttm = DateTime.MinValue, endtm = DateTime.MaxValue;                                        
@@ -732,8 +694,7 @@ namespace Gurux.DLMS.AddIn
             {
                 //Get data as byte array.
                 byte[] reply = arr[0].ExtractPacket();
-                byte[] data = null;
-                parser.GetDataFromPacket(reply, ref data);
+                CheckErrors(reply, true);
             }
             else if (command == "ReadDataReply") //Update property value
             {                
@@ -744,9 +705,51 @@ namespace Gurux.DLMS.AddIn
                     byte[] reply = it.ExtractPacket();
                     CheckErrors(reply, false);
                     parser.GetDataFromPacket(reply, ref data);
-                }                
-                object value = parser.GetValue(data);
-                Gurux.Device.GXProperty prop = sender as Gurux.Device.GXProperty;
+                }
+                GXDLMSProperty prop = sender as GXDLMSProperty;
+                object value;
+                if (prop.ObjectType == ObjectType.Data || 
+                    prop.ObjectType == ObjectType.Register ||
+                    prop.ObjectType == ObjectType.ExtendedRegister ||
+                    prop.ObjectType == ObjectType.DemandRegister)
+                {
+                    GXDLMSObject obj = Gurux.DLMS.GXDLMSClient.CreateObject(prop.ObjectType);
+                    if (prop.DLMSType == DataType.None)
+                    {
+                        prop.DLMSType = parser.GetDLMSDataType(data);
+                    }
+                    obj.SetDataType(prop.AttributeOrdinal, prop.DLMSType);                    
+                    obj.SetUIDataType(prop.AttributeOrdinal, prop.ValueType);
+                    obj.LogicalName = prop.LogicalName;
+                    //Update scaler if register.
+                    if (prop is GXDLMSRegister)
+                    {
+                        GXDLMSRegister r = prop as GXDLMSRegister;
+                        if (obj is GXDLMSDemandRegister)
+                        {
+                            (obj as GXDLMSDemandRegister).Scaler = r.Scaler;
+                        }
+                        else
+                        {
+                            (obj as Gurux.DLMS.Objects.GXDLMSRegister).Scaler = r.Scaler;
+                        }
+                    }
+
+                    parser.UpdateValue(data, obj, prop.AttributeOrdinal);
+                    value = obj.GetValues()[prop.AttributeOrdinal - 1];
+                }
+                else if (prop.Parent.Parent is GXDLMSCategory)
+                {
+                    GXDLMSCategory cat = prop.Parent.Parent as GXDLMSCategory;
+                    GXDLMSObject obj = Gurux.DLMS.GXDLMSClient.CreateObject(cat.ObjectType);
+                    obj.LogicalName = prop.LogicalName;
+                    parser.UpdateValue(data, obj, prop.AttributeOrdinal);
+                    value = obj.GetValues()[prop.AttributeOrdinal - 1];
+                }
+                else
+                {
+                    throw new Exception("Invalid target.");
+                }
                 prop.ReadTime = DateTime.Now;
                 prop.SetValue(value, false, Gurux.Device.PropertyStates.ValueChangedByDevice);
             }
@@ -780,11 +783,11 @@ namespace Gurux.DLMS.AddIn
                 GXDLMSTable table = sender as GXDLMSTable;
                 List<int> values = new List<int>();
                 int pos = 0;
-                foreach (GXDLMSObject it in TableColumns)
+                foreach (var it in TableColumns)
                 {
                     foreach (GXDLMSProperty prop in table.Columns)
                     {
-                        if (string.Compare(prop.LogicalName, it.LogicalName, true) == 0)
+                        if (string.Compare(prop.LogicalName, it.Key.LogicalName, true) == 0)
                         {
                             values.Add(pos);
                             break;
@@ -802,8 +805,23 @@ namespace Gurux.DLMS.AddIn
                     this.Extension.UpdateExtraInfo(items);                    
                 }
             }
+            else if (command == "UpdateCapturePeriod")//Update Capture Period of the table.
+            {
+                GXDLMSTable table = sender as GXDLMSTable;
+                //Get data as byte array.
+                foreach (GXPacket it in arr)
+                {
+                    byte[] allData = null;
+                    byte[] reply = it.ExtractPacket();
+                    CheckErrors(reply, false);
+                    parser.GetDataFromPacket(reply, ref allData);
+                    table.CapturePeriod = Convert.ToInt32(parser.GetValue(allData));
+                }                                
+            }
+                
             else if (command == "UpdateTableData")//Get table columns after all all data is received.
             {
+                pg = null;
                 if (!this.TryParse)
                 {
                     //Parse DLMS objexts.                    
@@ -967,21 +985,29 @@ namespace Gurux.DLMS.AddIn
                     if (this.ReceivedRows == 0)
                     {
                         table2.ClearRows();                        
-                    }
+                    }                    
                     Array reply = (Array)parser.TryGetValue(ReceivedData);
                     // If there is data.
                     if (reply != null && reply.Length != 0)
                     {
-                        int count = table2.RowCount;
-                        List<object[]> rows = new List<object[]>(reply.Length);
+                        int count = pg.Buffer.Count;
+                        pg.SetValue(2, reply);                        
+                        List<object> receivedData = new List<object>(pg.Buffer.ToArray());
+                        //Remove old rows. We must keep latest because some meters returns null as date time.
+                        if (count != 0)
+                        {                            
+                            receivedData.RemoveRange(0, count);
+                            pg.Buffer.RemoveRange(0, count - 1);
+                        }
+                        List<object[]> rows = new List<object[]>(receivedData.Count);
                         bool updated = false;
                         if (Extension != null)
                         {
                             updated = Extension.UpdateTableData(TableColumns, table2, reply, rows);
                         }
                         if (!updated)
-                        {                            
-                            foreach (object row in reply)
+                        {
+                            foreach (object row in receivedData)
                             {
                                 List<object> cols = new List<object>();
                                 foreach (int it in ColumnIndexs)
@@ -991,30 +1017,16 @@ namespace Gurux.DLMS.AddIn
                                 rows.Add(cols.ToArray());
                             }
                         }
-                        table2.AddRows(count, rows, false);
-                        //Get rows back because DeviceValueToUiValue is called.
-                        rows = table.GetRows(count, reply.Length, true);
-                        //Save latest read time. Note we must add one second or we will read last values again.
+                        table2.AddRows(-1, rows, false);
+                        //Save latest read time. Note we must add Capture Period or we will read last values again.
                         Gurux.Device.Editor.IGXPartialRead partialRead = table as Gurux.Device.Editor.IGXPartialRead;
-                        if (partialRead.Type == Gurux.Device.Editor.PartialReadType.New)
-                        {
-                            DateTime tm;
-                            if (!DateTime.TryParse(Convert.ToString(partialRead.Start), out tm))
-                            {
-                                tm = new DateTime(2000, 1, 1);
-                            }
-                            if (partialRead.Start != null)
-                            foreach (object[] it in rows)
-                            {
-                                if (it[0] != null && Convert.ToDateTime(it[0]) > tm)
-                                {
-                                    tm = Convert.ToDateTime(it[0]);
-                                }
-                            }
-                            partialRead.Start = tm.AddSeconds(1);
+                        if (partialRead.Type == Gurux.Device.Editor.PartialReadType.New && rows[rows.Count - 1][0] is GXDateTime)
+                        {                            
+                            DateTime tm = (rows[rows.Count - 1][0] as GXDateTime).Value;
+                            partialRead.Start = tm.AddSeconds(pg.CapturePeriod);
                         }
                         ReceivedRows += reply.Length;
-                    }                    
+                    }                  
                 }
                 return complete;
             }

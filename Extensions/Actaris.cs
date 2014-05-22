@@ -8,6 +8,7 @@ using Gurux.DLMS.AddIn;
 using GXDLMS.ManufacturerSettings;
 using Gurux.DLMS.ManufacturerSettings;
 using Gurux.DLMS;
+using Gurux.DLMS.Objects;
 
 namespace Extensions
 {
@@ -93,21 +94,21 @@ namespace Extensions
             if (scalar == null)
             {
                 GXDLMSProperty prop = new GXDLMSProperty(ObjectType.Data, logicanName, 0, name, index, DataType.DateTime);
-                prop.ValueType = GXObisCode.GetDataType(DataType.DateTime);
+                prop.ValueType = DataType.DateTime;
                 prop.AccessMode = Gurux.Device.AccessMode.Read;
                 table.Columns.Add(prop);
             }
             else
             {
                 object[] tmp = (object[])scalar;
-                GXDLMSRegister prop = new GXDLMSRegister();
+                Gurux.DLMS.AddIn.GXDLMSRegister prop = new Gurux.DLMS.AddIn.GXDLMSRegister();
                 prop.Scaler = Math.Pow(10, Convert.ToInt32(tmp[0]));
                 prop.Unit = tmp[1].ToString();
                 prop.LogicalName = logicanName;
                 prop.Name = name;
                 prop.AttributeOrdinal = index;
                 prop.DLMSType = DataType.UInt32;
-                prop.ValueType = GXObisCode.GetDataType(DataType.Float64);
+                prop.ValueType = DataType.Float64;
                 prop.AccessMode = Gurux.Device.AccessMode.Read;
                 table.Columns.Add(prop);
             }
@@ -123,7 +124,7 @@ namespace Extensions
             if (it.LogicalName == "0.0.99.1.2.255")
             {
                 //Read Load Profile 1 information
-                byte[] allData = parent.ReadDataBlock(cosem, media, cosem.Read("0.0.99.128.1.255", ObjectType.ProfileGeneric, 2)[0], wt);
+                byte[] allData = parent.ReadDataBlock(cosem, media, cosem.Read("0.0.99.128.1.255", ObjectType.ProfileGeneric, 2)[0], wt, 0);
                 object[] items = (object[])((object[])cosem.GetValue(allData)).GetValue(0);
                 int pos = 0;
                 AddColumn(cosem, man, table, null, null, 0, "DateTime");
@@ -148,7 +149,7 @@ namespace Extensions
             parent.CreateColumns(media, Device, man, wt, cosem, this, dataItems, registers, it, table);                    
         }
 
-        public bool UpdateTableData(Gurux.DLMS.Objects.GXDLMSObjectCollection TableColumns, GXDLMSTable target, Array reply, List<object[]> rows)
+        public bool UpdateTableData(List<GXKeyValuePair<GXDLMSObject, GXDLMSCaptureObject>> TableColumns, GXDLMSTable target, Array reply, List<object[]> rows)
         {
             List<Object> cols = new List<Object>();
             double skalar = 1;
@@ -158,7 +159,7 @@ namespace Extensions
                 cols.Clear();
                 for (int col = 0; col != TableColumns.Count; ++col)
                 {
-                    string ln = TableColumns[col].LogicalName;
+                    string ln = TableColumns[col].Key.LogicalName;
                     if (ln == "0.0.96.55.1.255")   //LoadProfile1EndOfIntervalDate
                     {
                         if (Unit == 6) //Minutes

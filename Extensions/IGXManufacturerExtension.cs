@@ -47,6 +47,6 @@ namespace Gurux.DLMS.AddIn.ManufacturerSettings
 
         void UpdateColumns(Gurux.DLMS.AddIn.GXDLMSDevice Device, GXManufacturer man, Gurux.DLMS.GXDLMSClient cosem, Gurux.Common.IGXMedia media, int wt, GXDLMSObject item, Gurux.DLMS.AddIn.GXDLMSTable table, Gurux.DLMS.AddIn.GXDLMSAddIn parent, GXCategory dataItems, GXCategory registers);
 
-        bool UpdateTableData(GXDLMSObjectCollection TableColumns, GXDLMSTable target, Array reply, List<object[]> rows);
+        bool UpdateTableData(List<GXKeyValuePair<GXDLMSObject, GXDLMSCaptureObject>> TableColumns, GXDLMSTable target, Array reply, List<object[]> rows);
    }
 }

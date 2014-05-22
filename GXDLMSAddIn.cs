@@ -49,6 +49,7 @@ using GXDLMS.ManufacturerSettings;
 using Gurux.DLMS.ManufacturerSettings;
 using Gurux.DLMS.Objects;
 using System.Text;
+using System.IO.Ports;
 
 namespace Gurux.DLMS.AddIn
 {
@@ -84,12 +85,12 @@ namespace Gurux.DLMS.AddIn
 
 		public override Type[] GetPropertyTypes(object parent)
         {                        
-            return new Type[] { typeof(GXDLMSData), typeof(GXDLMSRegister) };
+            return new Type[] { typeof(GXDLMSRegister) };
         }
 
 		public override Type[] GetCategoryTypes(object parent)
         {
-            return new Type[] { typeof(GXCategory), typeof(GXDLMClock), typeof(GXDLMSExtendedRegister), typeof(GXDLMSDemandRegister), typeof(GXDLMSHdlcSetup), typeof(GXDLMSIECOpticalPortSetup) };
+            return new Type[] { typeof(GXCategory), typeof(GXDLMSCategory) };
         }
 
 		public override Type[] GetTableTypes(object parent)
@@ -214,12 +215,13 @@ namespace Gurux.DLMS.AddIn
             return args.Reply;
 		}
 
-        internal byte[] ReadDataBlock(Gurux.DLMS.GXDLMSClient cosem, Gurux.Common.IGXMedia media, byte[] data, int wt)
+        internal byte[] ReadDataBlock(Gurux.DLMS.GXDLMSClient cosem, Gurux.Common.IGXMedia media, byte[] data, int wt, int scaler)
         {            
             byte[] reply = ReadDLMSPacket(cosem, media, data, wt);
             byte[] allData = null;
             RequestTypes moredata = cosem.GetDataFromPacket(reply, ref allData);
-            int maxProgress = cosem.GetMaxProgressStatus(allData);            
+            int max = cosem.GetMaxProgressStatus(allData);
+            int current = 0;
             while (moredata != 0)
             {
                 while ((moredata & RequestTypes.Frame) != 0)
@@ -228,8 +230,26 @@ namespace Gurux.DLMS.AddIn
                     reply = ReadDLMSPacket(cosem, media, data, wt);                    
                     if ((cosem.GetDataFromPacket(reply, ref allData) & RequestTypes.Frame) == 0)
                     {
+                        current = cosem.GetCurrentProgressStatus(allData);
+                        if (max != 0 && scaler != 0)
+                        {
+                            double tmp = current;
+                            tmp /= max;
+                            tmp *= max;
+                            tmp += scaler * max;
+                            Progress((int)tmp, 5 * max);
+                        }
                         moredata &= ~RequestTypes.Frame;
                         break;
+                    }
+                    current = cosem.GetCurrentProgressStatus(allData);
+                    if (max != 0 && scaler != 0)
+                    {
+                        double tmp = current;
+                        tmp /= max;
+                        tmp *= max;
+                        tmp += scaler * max;
+                        Progress((int)tmp, 5 * max);
                     }
                 }
                 if ((moredata & RequestTypes.DataBlock) != 0)
@@ -238,6 +258,15 @@ namespace Gurux.DLMS.AddIn
                     data = cosem.ReceiverReady(RequestTypes.DataBlock);
                     reply = ReadDLMSPacket(cosem, media, data, wt);
                     moredata = cosem.GetDataFromPacket(reply, ref allData);
+                    current = cosem.GetCurrentProgressStatus(allData);
+                    if (max != 0 && scaler != 0)
+                    {
+                        double tmp = current;
+                        tmp /= max;
+                        tmp *= max;
+                        tmp += scaler * max;
+                        Progress((int)tmp, 5 * max);
+                    }
                 }
             }
             return allData;
@@ -252,15 +281,10 @@ namespace Gurux.DLMS.AddIn
 			}
 			else
 			{
-				name = Convert.ToString(it.ShortName, 16);
-				for (int pos = name.Length; pos < 4; ++pos)
-				{
-					name = "0" + name;
-				}
-                name = "0x" + name + " " + it.LogicalName;
+                name = "0x" + Convert.ToString(it.ShortName, 16).PadLeft(4) + " " + it.LogicalName;
 			}
             GXObisCode code = manufacturer.ObisCodes.FindByLN(it.ObjectType, it.LogicalName, null);
-            if (code != null)
+            if (code != null && !string.IsNullOrEmpty(code.Description))
             {
                 name += " " + code.Description;
             }
@@ -274,10 +298,9 @@ namespace Gurux.DLMS.AddIn
 		/// <summary>
 		/// Import properties from the device.
 		/// </summary>
-		/// <param name="device">The target GXDevice to put imported items.</param>
-		/// <param name="trace">The trace text box.</param>
+        /// <param name="addinPages">Addin pages.</param>
+        /// <param name="device">The target GXDevice to put imported items.</param>
 		/// <param name="media">A media connection to the device.</param>
-		/// <param name="progressbar">A progressbar to show the progress of the import operation.</param>
 		/// <returns>True if there were no errors, otherwise false.</returns>
         public override void ImportFromDevice(Control[] addinPages, GXDevice device, IGXMedia media)
 		{
@@ -285,7 +308,7 @@ namespace Gurux.DLMS.AddIn
 			GXDLMSDevice Device = (GXDLMSDevice)device;            
 			int wt = Device.WaitTime;
 			GXDLMSClient cosem = null;
-            byte[] data, reply = null;
+            byte[] data, reply = null;            
             IGXManufacturerExtension Extension = null;
 			try
 			{                
@@ -313,16 +336,19 @@ namespace Gurux.DLMS.AddIn
 				}
 				else if (media is GXSerial) //If media is serial.
 				{
-                    byte Terminator = 0xA;
+                    byte terminator = 0xA;
                     if (Device.StartProtocol == StartProtocolType.IEC)
                     {
                         GXSerial serial = media as GXSerial;
-                        serial.Eop = null;
+                        serial.Eop = terminator;
+                        serial.Eop = terminator;
                         //Init IEC connection. This must done first with serial connections.
-                        string str = "/?" + Device.SerialNumber + "!\r\n";                        
-                        ReceiveParameters<string> args = new ReceiveParameters<string>();
-                        args.Eop = Terminator;
-                        args.WaitTime = wt;                        
+                        string str = "/?" + Device.SerialNumber + "!\r\n";
+                        ReceiveParameters<string> args = new ReceiveParameters<string>()
+                        {
+                            Eop = terminator,
+                            WaitTime = wt
+                        };
                         lock (media.Synchronous)
                         {
                             media.Send(str, null);
@@ -347,29 +373,29 @@ namespace Gurux.DLMS.AddIn
                         {
                             baudrate = '5';
                         }
-                        int bitrate = 0;
+                        int baudRate = 0;
                         switch (baudrate)
                         {
                             case '0':
-                                bitrate = 300;
+                                baudRate = 300;
                                 break;
                             case '1':
-                                bitrate = 600;
+                                baudRate = 600;
                                 break;
                             case '2':
-                                bitrate = 1200;
+                                baudRate = 1200;
                                 break;
                             case '3':
-                                bitrate = 2400;
+                                baudRate = 2400;
                                 break;
                             case '4':
-                                bitrate = 4800;
+                                baudRate = 4800;
                                 break;
                             case '5':                            
-                                bitrate = 9600;
+                                baudRate = 9600;
                                 break;
                             case '6':
-                                bitrate = 19200;
+                                baudRate = 19200;
                                 break;
                             default:
                                 throw new Exception("Unknown baud rate.");
@@ -386,29 +412,29 @@ namespace Gurux.DLMS.AddIn
                         {
                             args.Reply = null;                            
                             media.Send(data, null);                                                       
-                            ReceiveParameters<byte[]> args2 = new ReceiveParameters<byte[]>();
-                            args2.Eop = (byte)0x0A;
-                            args2.WaitTime = 500;
-                            if (!media.Receive(args))
+                            //This is in standard. Do not remove sleep.
+                            //Some meters work without it, but some do not.
+                            System.Threading.Thread.Sleep(500);
+                            serial.BaudRate = baudRate;
+                            ReceiveParameters<byte[]> args2 = new ReceiveParameters<byte[]>()
+                            {
+                                Eop = terminator,
+                                WaitTime = 100
+                            };
+                            //If this fails, just read all data.
+                            if (!media.Receive(args2))
                             {
                                 //Read buffer.
-                                args.AllData = true;
-                                args.WaitTime = 1;
-                                media.Receive(args);
+                                args2.AllData = true;
+                                args2.WaitTime = 1;
+                                media.Receive(args2);
                             }
-                            if (serial != null)
-                            {
-                                while (serial.BytesToWrite != 0)
-                                {
-                                    System.Threading.Thread.Sleep(50);
-                                }
-                                serial.RtsEnable = false;
-                                serial.BaudRate = bitrate;
-                                serial.DataBits = 8;
-                                serial.Parity = System.IO.Ports.Parity.None;
-                                serial.StopBits = System.IO.Ports.StopBits.One;
-                                serial.RtsEnable = true;
-                            }
+                            serial.DataBits = 8;
+                            serial.Parity = Parity.None;
+                            serial.StopBits = StopBits.One;
+                            serial.DiscardInBuffer();
+                            serial.DiscardOutBuffer();
+                            serial.ResetSynchronousBuffer();
                         }                        
                     }
 				}
@@ -462,7 +488,7 @@ namespace Gurux.DLMS.AddIn
                         cosem.ServerID = GXManufacturer.CountServerAddress(Device.HDLCAddressing, Device.SNFormula, Device.PhysicalAddress, Device.LogicalAddress);
                     }                    
                 }
-                object allData = null;
+                byte[] allData = null;
                 data = cosem.SNRMRequest();
 				//General Network connection don't need SNRMRequest.
 				if (data != null)
@@ -493,30 +519,140 @@ namespace Gurux.DLMS.AddIn
 					throw new Exception("DLMS AARQRequest failed. " + Ex.Message);
 				}
                 cosem.ParseAAREResponse(reply);
-				Trace("Read Objects\r\n");
+                //Now 1/5 or actions is done.
+                Progress(1, 5);
+                Trace("Read Objects\r\n");
                 try
 				{
-                    allData = ReadDataBlock(cosem, media, cosem.GetObjectsRequest(), wt);
+                    allData = ReadDataBlock(cosem, media, cosem.GetObjectsRequest(), wt, 1);
 				}
 				catch (Exception Ex)
 				{
 					throw new Exception("DLMS AARQRequest failed. " + Ex.Message);
-				}               
+				}
                 Trace("--- Parse Objects ---\r\n");
                 GXDLMSObjectCollection objs = cosem.ParseObjects((byte[])allData, true);
+
 			    allData = null;
 				//Now we know exact number of read registers. Update progress bar again.
-                int max = objs.Count;                				
-				Trace("--- Read Generic profiles ---\r\n");
+                int max = objs.Count;				                
+				Trace("--- Read scalars ---\r\n");
+				//Now 2/5 or actions is done.
+                Progress(2 * max, 5 * max);
+                GXCategory dataItems = new GXCategory();
+                dataItems.Name = "Data Items";
+                GXCategory registers = new GXCategory();
+                registers.Name = "Registers";
+                Device.Categories.Add(dataItems);
+                Device.Categories.Add(registers);
+                int pos = 0;
+                foreach (GXDLMSObject it in objs)
+                {
+                    ++pos;
+                    //Skip association views.
+                    if (it.ObjectType == ObjectType.AssociationLogicalName ||
+                        it.ObjectType == ObjectType.AssociationShortName)
+                    {
+                        continue;
+                    }
+                    if (it.ObjectType != ObjectType.ProfileGeneric)
+                    {
+                        object prop = UpdateData(media, Device, wt, cosem, man, it, dataItems, registers);
+                        //Read scaler and unit
+                        if (it.ObjectType == ObjectType.Register)
+                        {
+                            try
+                            {
+                                data = cosem.Read(it.Name, it.ObjectType, 3)[0];
+                                allData = ReadDataBlock(cosem, media, data, wt, 2);
+                                cosem.UpdateValue(allData, it, 3);
+                                Gurux.DLMS.Objects.GXDLMSRegister item = it as Gurux.DLMS.Objects.GXDLMSRegister;
+                                GXDLMSRegister r = prop as GXDLMSRegister;
+                                r.Scaler = item.Scaler;
+                                r.Unit = item.Unit.ToString();
+                            }
+                            //Ignore HW error and read next.
+                            catch (GXDLMSException)
+                            {
+                                continue;
+                            }
+                            catch (Exception Ex)
+                            {
+                                throw new Exception("DLMS Register Scaler and Unit read failed. " + Ex.Message);
+                            }
+                        }
+                        //Read scaler and unit
+                        else if (it.ObjectType == ObjectType.ExtendedRegister)
+                        {
+                            try
+                            {
+                                data = cosem.Read(it.Name, it.ObjectType, 3)[0];
+                                allData = ReadDataBlock(cosem, media, data, wt, 2);
+                                cosem.UpdateValue(allData, it, 3);
+                                Gurux.DLMS.Objects.GXDLMSExtendedRegister item = it as Gurux.DLMS.Objects.GXDLMSExtendedRegister;
+                                GXDLMSCategory cat = prop as GXDLMSCategory;
+                                GXDLMSRegister r = cat.Properties[0] as GXDLMSRegister;
+                                r.Scaler = item.Scaler;
+                                r.Unit = item.Unit.ToString();
+                                cat.Properties[1].SetValue(item.Scaler.ToString() + ", " + item.Unit.ToString(), true, PropertyStates.None);
+                            }
+                            //Ignore HW error and read next.
+                            catch (GXDLMSException)
+                            {
+                                continue;
+                            }
+                            catch (Exception Ex)
+                            {
+                                throw new Exception("DLMS Register Scaler and Unit read failed. " + Ex.Message);
+                            }
+                        }
+                        //Read scaler and unit
+                        else if (it.ObjectType == ObjectType.DemandRegister)
+                        {
+                            try
+                            {
+                                data = cosem.Read(it.Name, it.ObjectType, 3)[0];
+                                allData = ReadDataBlock(cosem, media, data, wt, 2);
+                                cosem.UpdateValue(allData, it, 3);
+                                Gurux.DLMS.Objects.GXDLMSDemandRegister item = it as Gurux.DLMS.Objects.GXDLMSDemandRegister;
+                                GXDLMSCategory cat = prop as GXDLMSCategory;
+                                cat.Properties[2].SetValue(item.Scaler.ToString() + ", " + item.Unit.ToString(), true, PropertyStates.None);
+
+                                GXDLMSRegister r = cat.Properties[0] as GXDLMSRegister;
+                                r.Scaler = item.Scaler;
+                                r.Unit = item.Unit.ToString();
+                                r = cat.Properties[1] as GXDLMSRegister;
+                                r.Scaler = item.Scaler;
+                                r.Unit = item.Unit.ToString();
+                            }
+                            //Ignore HW error and read next.
+                            catch (GXDLMSException)
+                            {
+                                continue;
+                            }
+                            catch (Exception Ex)
+                            {
+                                throw new Exception("DLMS Register Scaler and Unit read failed. " + Ex.Message);
+                            }
+                        }                        
+                    }
+                    //Now 3/5 actions is done.
+                    double tmp = pos * max; 
+                    tmp /= max;
+                    tmp += 2 * max;
+                    Progress((int) tmp , 5 * max);
+                }
+                //Now 3/5 actions is done.
+                Progress(3 * max, 5 * max);
+                Trace("--- Read Generic profiles ---\r\n");
                 GXDLMSObjectCollection pg = objs.GetObjects(ObjectType.ProfileGeneric);
-				foreach (GXDLMSProfileGeneric it in pg)
-				{
+                foreach (GXDLMSProfileGeneric it in pg)
+                {
                     try
                     {
-                        allData = ReadDataBlock(cosem, media, cosem.Read(it.Name, it.ObjectType, 3)[0], wt);
-                        GXDLMSObjectCollection items = cosem.ParseColumns((byte[])allData);
-                        allData = null;
-                        it.CaptureObjects.AddRange(items);
+                        allData = ReadDataBlock(cosem, media, cosem.Read(it.Name, it.ObjectType, 3)[0], wt, 3);
+                        cosem.UpdateValue(allData, it, 3);
+                        UpdateData(media, Device, wt, cosem, man, it, dataItems, registers);
                     }
                     //Ignore HW error and read next.
                     catch (GXDLMSException)
@@ -527,73 +663,21 @@ namespace Gurux.DLMS.AddIn
                     {
                         Trace("DLMS Generic Profile read failed. " + Ex.Message + Environment.NewLine);
                     }
-                }                
-				Trace("--- Read scalars ---\r\n");
-				//Now 1/2 or registers is read...
-                Progress(2 * max, 4 * max);
-                GXCategory dataItems = new GXCategory();
-                dataItems.Name = "Data Items";
-                GXCategory registers = new GXCategory();
-                registers.Name = "Registers";
-                Device.Categories.Add(dataItems);
-                Device.Categories.Add(registers);
-                //Scalers must read one by one because all devices do not support reading all at one message...
-                GXDLMSObjectCollection regs = objs.GetObjects(new ObjectType[] { ObjectType.Register});
-                foreach (GXDLMSObject it in objs)
-                {
-                    object prop = UpdateData(media, Device, wt, cosem, man, it, dataItems, registers);
-                    if (it.ObjectType == ObjectType.Register || it.ObjectType == ObjectType.ExtendedRegister)
-                    {
-                        GXObisCode code = man.ObisCodes.FindByLN(it.ObjectType, it.LogicalName, null);
-                        try
-                        {
-                            if (code != null)
-                            {
-                                GXDLMSAttributeSettings att = code.Attributes.Find(3);
-                                if (att != null && att.Access == AccessMode.NoAccess)
-                                {
-                                    continue;
-                                }
-                            }
-                            data = cosem.Read(it.Name, it.ObjectType, 3)[0];
-                            allData = ReadDataBlock(cosem, media, data, wt);
-                        }
-                        //Ignore HW error and read next.
-                        catch (GXDLMSException)
-                        {
-                            continue;
-                        }
-                        catch (Exception Ex)
-                        {
-                            throw new Exception("DLMS Register Scaler and Unit read failed. " + Ex.Message);
-                        }
-                        allData = (Array)cosem.GetValue((byte[])allData);
-                        double Scaler = Math.Pow(10, Convert.ToInt32(((Array)allData).GetValue(0)));
-                        GXDLMSRegister r = prop as GXDLMSRegister;
-                        if (r != null)
-                        {
-                            if (Scaler != 1)
-                            {
-                                r.Scaler = Scaler;
-                            }
-                            r.Unit = GXDLMSClient.GetUnit((Unit)(Convert.ToInt32(((Array)allData).GetValue(1))));
-                        }
-                        allData = null;
-                    }
-                    Progress(2 * max, 4 * max);                    
                 }
-                //Now 3/4 or registers is read...
-                Progress(3 * max, 4 * max);                
-                //Update tables coluns.
-                CreateTables(media, Device, man, wt, cosem, Extension, objs, dataItems, registers);
-                try
+                //Now 4/5 actions is done.
+                Progress(4 * max, 5 * max);            
+
+                //Update IEC HDLC interval if found. 
+                GXDLMSObjectCollection objects = objs.GetObjects(ObjectType.IecHdlcSetup);
+                if (objects.Count != 0)
                 {
-                    Device.Manufacturers.WriteManufacturerSettings();
+                    allData = ReadDataBlock(cosem, media, cosem.Read(objects[0].Name, objects[0].ObjectType, 8)[0], wt, 5);
+                    //Minus 10 second.
+                    Device.Keepalive.Interval = (Convert.ToInt32(cosem.GetValue(allData)) - 10) * 1000;
                 }
-                catch
-                {
-                    //Skip errors.
-                }
+
+                //Now all actions are done.
+                Progress(max, max);
                 Trace("--- Succeeded ---\r\n");
 			}
 			finally
@@ -605,7 +689,7 @@ namespace Gurux.DLMS.AddIn
 					if (cosem != null)
 					{
 						//Network standard don't need this.					
-						if (!Device.SupportNetworkSpecificSettings)
+                        if (!(media is GXNet && Device.SupportNetworkSpecificSettings))
 						{
 							try
 							{
@@ -627,7 +711,7 @@ namespace Gurux.DLMS.AddIn
 				}
 			}			
 		}
-
+        /* Mikko
         private void CreateTables(Gurux.Common.IGXMedia media, GXDLMSDevice Device, GXManufacturer man, int wt, GXDLMSClient cosem, IGXManufacturerExtension Extension, GXDLMSObjectCollection objs, GXCategory dataItems, GXCategory registers)
         {
             //Profile generic will handle here, because it will need register objects and they must read fist.
@@ -653,6 +737,7 @@ namespace Gurux.DLMS.AddIn
                 }                
             }
         }
+        */
 
         string GetName(GXManufacturer man, Gurux.DLMS.ObjectType type, string logicanName)
         {
@@ -670,157 +755,110 @@ namespace Gurux.DLMS.AddIn
         }
 
         internal void CreateColumns(Gurux.Common.IGXMedia media, GXDLMSDevice Device, GXManufacturer man, int wt, GXDLMSClient cosem, IGXManufacturerExtension Extension, GXCategory dataItems, GXCategory registers, GXDLMSObject it, GXDLMSTable table)
+        {            
+        }
+
+        void UpdateObject(GXDLMSObject it, GXDLMSProperty item, int index)
         {
-            foreach (GXDLMSObject col in ((GXDLMSProfileGeneric)it).CaptureObjects)
+            //Update name.
+            item.AttributeOrdinal = index;
+            item.ShortName = it.ShortName;
+            item.LogicalName = it.LogicalName;
+            if (it.ShortName != 0)
             {
-                try
+                item.Name = string.Format("0x{0} {1} {2}", it.ShortName.ToString("X4"), it.LogicalName, it.Description);
+            }
+            else
+            {
+                item.Name = it.LogicalName + " " + it.Description;
+            }                        
+            //Update description.
+            item.Description = it.Description;
+            //Update access mode.
+            item.DLMSType = it.GetDataType(index);
+            if (item.DLMSType == DataType.Enum)
+            {
+                item.ForcePresetValues = true;
+                object value = it.GetValues()[index - 1];
+                foreach (object val in Enum.GetValues(value.GetType()))
                 {
-                    int index = col.SelectedAttributeIndex;
-                    //Get default index if not given.
-                    if (index == 0)
+                    item.Values.Add(new GXValueItem(val.ToString(), (int)val));
+                }
+            }
+            else
+            {
+                item.ValueType = it.GetUIDataType(index);                
+                if (item.ValueType == DataType.None)
+                {
+                    item.ValueType = it.GetDataType(index);                    
+                }
+            }
+            item.AccessMode = (Gurux.Device.AccessMode)it.GetAccess(index);
+        }
+
+        void UpdateObject(GXDLMSObject it, GXDLMSCategory item)
+        {
+            item.ShortName = (UInt16)it.ShortName;
+            item.LogicalName = it.LogicalName;
+            if (it.ShortName != 0)
+            {
+                item.Name = string.Format("0x{0} {1} {2}", it.ShortName.ToString("X4"), it.LogicalName, it.Description);
+            }
+            else
+            {
+                item.Name = it.LogicalName + " " + it.Description;
+            }
+            //Update description.
+            item.Description = it.Description;
+            //Update atribute index.
+            for (int pos = 2; pos != (it as IGXDLMSBase).GetAttributeCount() + 1; ++pos)
+            {
+                string name = (it as IGXDLMSBase).GetNames()[pos - 1];
+                object value = it.GetValues()[pos - 1];
+                GXDLMSProperty prop;
+                if (((pos == 2 || pos == 3) && it.ObjectType == ObjectType.DemandRegister) || 
+                    (pos == 2 && it.ObjectType == ObjectType.ExtendedRegister))
+                {
+                    prop = new GXDLMSRegister();
+                    prop.ObjectType = it.ObjectType;
+                    prop.LogicalName = it.LogicalName;
+                    prop.ShortName = it.ShortName;
+                    prop.Name = name;
+                    prop.AttributeOrdinal = pos;
+                }
+                else
+                {
+                    prop = new GXDLMSProperty(it.ObjectType, it.LogicalName, it.ShortName, name, pos);
+                }
+                item.Properties.Add(prop);
+                prop.DLMSType = it.GetDataType(pos);
+                //Update scaler and unit.
+                if ((pos == 4 && it.ObjectType == ObjectType.DemandRegister) ||
+                    (pos == 3 && it.ObjectType == ObjectType.ExtendedRegister))
+                {
+                    prop.ValueType = DataType.String;
+                }
+                else
+                {
+                    if (value is Enum)
                     {
-                        index = 2;
-                    }
-                    if (col.ObjectType == ObjectType.Register)
-                    {
-                        GXDLMSRegister r = FindByLN(registers.Properties, typeof(GXDLMSRegister), col.LogicalName) as GXDLMSRegister;
-                        if (r == null)
+                        prop.ForcePresetValues = true;
+                        foreach (object val in Enum.GetValues(value.GetType()))
                         {
-                            r = new GXDLMSRegister();
-                            r.LogicalName = col.LogicalName;
-                            r.ObjectType = col.ObjectType;
-                            r.Version = col.Version;
-                            r.Name = GetName(man, Gurux.DLMS.ObjectType.Register, col.LogicalName);
+                            prop.Values.Add(new GXValueItem(val.ToString(), (int)val));
                         }
-                        GetDataType(man, cosem, media, wt, r, index);
-                        r.AttributeOrdinal = index;
-                        //If Attribute Ordinal is Event type
-                        if ((index & 0x8) != 0)
-                        {
-                            r.Name = col.LogicalName + " " + "Event Status";
-                        }
-                        //If Attribute Ordinal is is status
-                        else if ((index & 0x10) != 0)
-                        {
-                            r.Name = col.LogicalName + " " + "Status";
-                        }
-                        //If Edis type is normal data.
-                        else
-                        {
-                            GetDataType(man, cosem, media, wt, r, index);
-                        }
-                        table.Columns.Add(r.Clone());
-                    }
-                    else if (col.ObjectType == ObjectType.DemandRegister)
-                    {
-                        GXDLMSProperty r = FindByLN(Device.Categories, typeof(GXDLMSDemandRegister), col.LogicalName, index) as GXDLMSProperty;
-                        if (r == null)
-                        {
-                            r = new GXDLMSProperty();
-                            r.LogicalName = col.LogicalName;
-                            r.ObjectType = col.ObjectType;
-                            r.Version = col.Version;
-                            r.Name = GetName(man, Gurux.DLMS.ObjectType.DemandRegister, col.LogicalName);
-                        }
-                        GetDataType(man, cosem, media, wt, r, index);
-                        r.AttributeOrdinal = index;
-                        //If Attribute Ordinal is Event type
-                        if ((index & 0x8) != 0)
-                        {
-                            r.Name = col.LogicalName + " " + "Event Status";
-                        }
-                        //If Attribute Ordinal is is status
-                        else if ((index & 0x10) != 0)
-                        {
-                            r.Name = col.LogicalName + " " + "Status";
-                        }
-                        //If Edis type is normal data.
-                        else
-                        {
-                            GetDataType(man, cosem, media, wt, r, index);
-                        }
-                        table.Columns.Add(r.Clone());
-                    }
-                    else if (col.ObjectType == ObjectType.ExtendedRegister)
-                    {                        
-                        GXDLMSProperty r = FindByLN(Device.Categories, typeof(GXDLMSExtendedRegister), col.LogicalName, index) as GXDLMSProperty;
-                        if (r == null)
-                        {
-                            r = new GXDLMSProperty();
-                            r.LogicalName = col.LogicalName;
-                            r.ObjectType = col.ObjectType;
-                            r.Version = col.Version;
-                            r.Name = GetName(man, Gurux.DLMS.ObjectType.ExtendedRegister, col.LogicalName);
-                        }
-                        GetDataType(man, cosem, media, wt, r, index);
-                        r.AttributeOrdinal = index;
-                        //If Attribute Ordinal is Event type
-                        if ((index & 0x8) != 0)
-                        {
-                            r.Name = col.LogicalName + " " + "Event Status";
-                        }
-                        //If Attribute Ordinal is is status
-                        else if ((index & 0x10) != 0)
-                        {
-                            r.Name = col.LogicalName + " " + "Status";
-                        }
-                        //If Edis type is normal data.
-                        else
-                        {
-                            GetDataType(man, cosem, media, wt, r, index);
-                        }
-                        table.Columns.Add(r.Clone());
-                    }
-                    else if (col.ObjectType == ObjectType.Data)
-                    {
-                        GXDLMSData d = FindByLN(dataItems.Properties, typeof(GXDLMSData), col.LogicalName) as GXDLMSData;
-                        if (d == null)
-                        {
-                            d = new GXDLMSData();
-                            d.LogicalName = col.LogicalName;
-                            d.ObjectType = col.ObjectType;
-                            d.Version = col.Version;
-                            d.Name = GetName(man, Gurux.DLMS.ObjectType.Data, col.LogicalName);
-                        }
-                        GetDataType(man, cosem, media, wt, d, index);
-                        d.AttributeOrdinal = index;
-                        table.Columns.Add(d.Clone());
-                    }
-                    else if (col.ObjectType == ObjectType.Clock)
-                    {
-                        GXDLMSProperty prop = FindByLN(Device.Categories, typeof(GXDLMClock), col.LogicalName, index) as GXDLMSProperty;
-                        if (prop == null)
-                        {
-                            prop = new GXDLMSProperty();
-                            prop.LogicalName = col.LogicalName;
-                            prop.ObjectType = col.ObjectType;
-                            prop.Version = col.Version;
-                            prop.Name = GetName(man, Gurux.DLMS.ObjectType.Clock, col.LogicalName);
-                        }                        
-                        GetDataType(man, cosem, media, wt, prop, index);                        
-                        table.Columns.Add(prop.Clone());
-                    }
-                    else if (col.ObjectType == ObjectType.ProfileGeneric)
-                    {
-                        //Profile Generics are taken care of later.
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine("Unknown column type: " + col.ObjectType.ToString());
-                        Trace("Unknown column type: " + col.ObjectType.ToString() + "\r\n");
+                        prop.ValueType = it.GetUIDataType(pos);
+                        if (prop.ValueType == DataType.None)
+                        {
+                            prop.ValueType = it.GetDataType(pos);
+                        }
                     }
                 }
-                //Ignore HW error and read next.
-                catch (GXDLMSException)
-                {
-                    continue;
-                }
-                catch (Exception Ex)
-                {
-                    Trace(Ex.ToString());
-                    continue;
-                }
-            }
+                prop.AccessMode = (Gurux.Device.AccessMode)it.GetAccess(pos);
+            }            
         }
 
         /// <summary>
@@ -838,158 +876,62 @@ namespace Gurux.DLMS.AddIn
         /// <param name="registers"></param>
         private object UpdateData(Gurux.Common.IGXMedia media, GXDLMSDevice Device, int wt, GXDLMSClient cosem, GXManufacturer man, GXDLMSObject it, GXCategory dataItems, GXCategory registers)
         {
-            GXObisCode code = man.ObisCodes.FindByLN(it.ObjectType, it.LogicalName, null);
+            GXObisCode code = man.ObisCodes.FindByLN(it.ObjectType, it.LogicalName, null);            
             if (it.ObjectType == ObjectType.Register)
             {
                 GXDLMSRegister prop = new GXDLMSRegister();
-                prop.AccessMode = (Gurux.Device.AccessMode)it.GetAccess(2);
-                prop.LogicalName = it.LogicalName;
-                if (code != null)
-                {
-                    prop.Description = code.Description;
-                }
-                else
-                {
-                    prop.Description = it.Description;
-                }
-                prop.Name = GetName(man, cosem.UseLogicalNameReferencing, it);
-                prop.ShortName = (UInt16)it.ShortName;
-                //Registers must read to define data type. This must done because DLMS don't tell data type.                        
-                try
-                {
-                    if (code != null && code.UIType != DataType.None)
-                    {
-                        prop.ValueType = GXObisCode.GetDataType(code.UIType);
-                    }
-                    else if (code != null)
-                    {
-                        prop.DLMSType = code.Type;
-                    }
-                    if (prop.DLMSType == DataType.None)
-                    {
-                        GetDataType(man, cosem, media, wt, prop, 2);
-                    }
-                    //Don't add the property if data type is unknown.
-                    if (prop.DLMSType == DataType.None ||
-                        prop.DLMSType == DataType.Array)
-                    {
-                        return null;
-                    }
-                }
-                //Ignore HW error and read next.
-                catch (GXDLMSException)
-                {
-                    return null;
-                }
-                catch (Exception Ex)
-                {
-                    Trace("GetDataType failed for register: " + prop.Name + "\r\n" + Ex.ToString());
-                    return null;
-                }
+                UpdateObject(it, prop, 2);
                 registers.Properties.Add(prop);
                 return prop;
             }
             else if (it.ObjectType == Gurux.DLMS.ObjectType.Data)
             {
-                GXDLMSData prop = new GXDLMSData();
-                try
-                {
-                    prop.LogicalName = it.LogicalName;
-                    prop.Name = GetName(man, cosem.UseLogicalNameReferencing, it);
-                    prop.ShortName = (UInt16)it.ShortName;
-                    if (code != null && code.UIType != DataType.None)
-                    {
-                        prop.ValueType = GXObisCode.GetDataType(code.UIType);
-                    }
-                    else if (code != null)
-                    {
-                        prop.DLMSType = code.Type;
-                    }
-                    if (prop.DLMSType == DataType.None)
-                    {
-                        GetDataType(man, cosem, media, wt, prop, 2);
-                    }
-                    //Don't add the property if data type is unknown.
-                    if (prop.DLMSType == DataType.None ||
-                        prop.DLMSType == DataType.Array)
-                    {
-                        return null;
-                    }
-                    prop.Initialize(code);
-                }
-                //Ignore HW error and read next.
-                catch (GXDLMSException)
-                {
-                    return null;
-                }
-                catch (Exception Ex)
-                {
-                    Trace("GetDataType failed for register: " + prop.Name + "\r\n" + Ex.ToString());
-                    return null;
-                }
+                GXDLMSProperty prop = new GXDLMSProperty();
+                prop.ObjectType = ObjectType.Data;
+                UpdateObject(it, prop, 2);
                 dataItems.Properties.Add(prop);
                 return prop;
             }
-            else if (it.ObjectType == Gurux.DLMS.ObjectType.ExtendedRegister)
+            else if (it.ObjectType == Gurux.DLMS.ObjectType.ProfileGeneric)
             {
-                GXDLMSExtendedRegister item = new GXDLMSExtendedRegister();
-                item.ShortName = (UInt16)it.ShortName;
-                item.LogicalName = it.LogicalName;
-                item.Name = GetName(man, cosem.UseLogicalNameReferencing, it);
-                Device.Categories.Add(item);
-                item.Initialize(code);
-                Device.Categories.Add(item);
-                return item;
+                GXDLMSProfileGeneric pg = it as GXDLMSProfileGeneric;
+                GXDLMSTable table = new GXDLMSTable();
+                table.Name = it.LogicalName + " " + it.Description;
+                table.ShortName = it.ShortName;
+                table.LogicalName = it.LogicalName;
+                table.AccessMode = Gurux.Device.AccessMode.Read;
+                foreach(var it2 in pg.CaptureObjects)
+                {
+                    GXDLMSProperty prop;
+                    if (it2.Key is Gurux.DLMS.Objects.GXDLMSRegister)
+                    {
+                        Gurux.DLMS.Objects.GXDLMSRegister tmp = it2.Key as Gurux.DLMS.Objects.GXDLMSRegister;
+                        GXDLMSRegister r = new GXDLMSRegister();
+                        prop = r;
+                        r.Scaler = tmp.Scaler;
+                        r.Unit = tmp.Unit.ToString();                    
+                    }
+                    else
+                    {
+                        prop = new GXDLMSProperty();
+                    }
+                    int index = it2.Value.AttributeIndex;
+                    prop.Name = it2.Key.LogicalName + " " + it2.Key.Description;
+                    prop.ObjectType = it2.Key.ObjectType;
+                    prop.AttributeOrdinal = index;
+                    prop.LogicalName = it2.Key.LogicalName;
+                    table.Columns.Add(prop);
+                    prop.DLMSType = it.GetDataType(index);                    
+                    prop.ValueType = it2.Key.GetUIDataType(index);
+                }
+                Device.Tables.Add(table);
+                return table; 
             }
-            else if (it.ObjectType == Gurux.DLMS.ObjectType.DemandRegister)
-            {
-                GXDLMSDemandRegister item = new GXDLMSDemandRegister();
-                item.ShortName = (UInt16)it.ShortName;
-                item.LogicalName = it.LogicalName;
-                item.Name = GetName(man, cosem.UseLogicalNameReferencing, it);
-                Device.Categories.Add(item);
-                item.Initialize(code);
-                Device.Categories.Add(item);
-                return item;
-            }
-            else if (it.ObjectType == ObjectType.Clock)
-            {
-                GXDLMClock item = new GXDLMClock();
-                item.ShortName = (UInt16)it.ShortName;
-                item.LogicalName = it.LogicalName;
-                item.Name = it.LogicalName + " Clock";
-                Device.Categories.Add(item);
-                item.Initialize(code);
-                Device.Categories.Add(item);
-                return item;
-            }
-            else if (it.ObjectType == ObjectType.IecHdlcSetup)
-            {
-                GXDLMSHdlcSetup item = new GXDLMSHdlcSetup();
-                item.ShortName = (UInt16)it.ShortName;
-                item.LogicalName = it.LogicalName;
-                item.Name = GetName(man, cosem.UseLogicalNameReferencing, it);
-                Device.Categories.Add(item);
-                item.Initialize(code);
-                Device.Categories.Add(item);
-                return item;
-            }
-            else if (it.ObjectType == ObjectType.IecLocalPortSetup)
-            {
-                GXDLMSIECOpticalPortSetup item = new GXDLMSIECOpticalPortSetup();
-                item.ShortName = (UInt16)it.ShortName;
-                item.LogicalName = it.LogicalName;
-                item.Name = GetName(man, cosem.UseLogicalNameReferencing, it);
-                Device.Categories.Add(item);
-                item.Initialize(code);
-                Device.Categories.Add(item);
-                return item;
-            }
-            else if (it.ObjectType != ObjectType.ProfileGeneric)
-            {
-                System.Diagnostics.Debug.WriteLine("Unknown Interface type: " + it.ObjectType.ToString());                
-            }
-            return null;
+            GXDLMSCategory cat = new GXDLMSCategory();
+            cat.ObjectType = it.ObjectType;
+            UpdateObject(it, cat);
+            Device.Categories.Add(cat);
+            return cat;            
         }
 
         GXDLMSProperty FindByLN(GXPropertyCollection properties, Type type, string ln)
@@ -1021,72 +963,6 @@ namespace Gurux.DLMS.AddIn
             }
             return null;
         }
-
-        void GetDataType(GXManufacturer man, GXDLMSClient cosem, Gurux.Common.IGXMedia media, int wt, GXDLMSProperty prop, int AttributeOrder)
-        {
-            //If value type is know.
-            if (prop.ValueType != null)
-            {
-                return;
-            }
-            GXObisCode code = man.ObisCodes.FindByLN(prop.ObjectType, prop.LogicalName, null);
-            if (code != null)
-            {
-                GXDLMSAttributeSettings att = code.Attributes.Find(AttributeOrder);
-                if (att != null)
-                {
-                    prop.DLMSType = att.Type;
-                    prop.ValueType = GXObisCode.GetDataType(att.UIType);
-                    if (prop.DLMSType != DataType.None)
-                    {
-                        return;
-                    }
-                }
-            }
-            byte[] data = null;
-            Gurux.DLMS.ObjectType objectType = ObjectType.None;
-			object name;
-            if (cosem.UseLogicalNameReferencing)
-            {                
-                objectType = prop.ObjectType;
-				name = prop.LogicalName;
-            }
-			else
-			{
-				name = prop.ShortName;
-			}
-            try
-            {
-                data = cosem.Read(name, objectType, AttributeOrder)[0];
-                byte[] allData = ReadDataBlock(cosem, media, data, wt);
-                object vald = cosem.GetValue(allData);
-                prop.DLMSType = cosem.GetDLMSDataType(allData);
-                if (prop.DLMSType == DataType.OctetString)
-                {
-                    bool isAlpha = true;
-                    object val = cosem.GetValue(allData);
-                    for (int pos = 0; pos != ((Array)val).Length; ++pos)
-                    {
-                        byte ch = Convert.ToByte(((Array)val).GetValue(pos));
-                        if (ch == 0xFF || !(char.IsLetterOrDigit((char)ch) || ch == 0))
-                        {
-                            isAlpha = false;
-                            break;
-                        }
-                    }
-                    //Get Value.
-                    if (isAlpha)
-                    {
-                        prop.ValueType = typeof(string);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(ex.Message);                
-            }
-        }
-
 
         public override void InitializeAfterImport(GXDevice device)
         {            

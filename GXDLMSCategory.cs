@@ -72,6 +72,14 @@ namespace Gurux.DLMS.AddIn
             set;
         }
 
+        [DataMember(IsRequired = false, EmitDefaultValue = false), DefaultValue(0)]
+        [ValueAccess(ValueAccessType.None, ValueAccessType.None)]
+        public virtual ObjectType ObjectType
+        {
+            get;
+            set;
+        }
+
         /// <summary>
         /// COSEM object's Logical Name.
         /// </summary>
@@ -88,19 +96,6 @@ namespace Gurux.DLMS.AddIn
 
         protected static void UpdateBaudrates(GXDLMSProperty prop)
         {
-            prop.Values.Clear();
-            prop.Values.Add(new GXValueItem("300", 0));
-            prop.Values.Add(new GXValueItem("600", 1));
-            prop.Values.Add(new GXValueItem("1200", 2));
-            prop.Values.Add(new GXValueItem("2400", 3));
-            prop.Values.Add(new GXValueItem("4800", 4));
-            prop.Values.Add(new GXValueItem("9600", 5));
-            prop.Values.Add(new GXValueItem("19200", 6));
-            prop.Values.Add(new GXValueItem("38400", 7));
-            prop.Values.Add(new GXValueItem("57600", 8));
-            prop.Values.Add(new GXValueItem("115200", 9));
-            prop.ForcePresetValues = true;
-            prop.DefaultValue = "300";
         }
 
         public override void Validate(bool designMode, GXTaskCollection tasks)

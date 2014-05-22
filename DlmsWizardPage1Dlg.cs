@@ -55,7 +55,7 @@ namespace Gurux.DLMS.AddIn
         GXAuthentication SelectedAuthentication;
         private System.Windows.Forms.Label manufacturerTypeLbl;
 		private System.Windows.Forms.ComboBox manufacturerTypeCb;
-        private GXDevice m_Device;
+        private GXDLMSDevice m_Device;
 		private System.Windows.Forms.GroupBox groupBox2;
         private System.Windows.Forms.Label authLevelLbl;
 		private System.Windows.Forms.TextBox passwordTb;
@@ -81,20 +81,24 @@ namespace Gurux.DLMS.AddIn
             AddressTypeCB.DrawMode = DrawMode.OwnerDrawFixed;
             this.TopLevel = false;
             this.FormBorderStyle = FormBorderStyle.None;
-            m_Device = device;
+            m_Device = device as GXDLMSDevice;
             UpdateManufacturers();
             this.authLevelCb.SelectedIndexChanged += new System.EventHandler(this.AuthLevelCb_SelectedIndexChanged);
-            UpdatemanufactureSettings(((GXDLMSDevice)m_Device).PhysicalAddress == null);
+            UpdatemanufactureSettings((m_Device).PhysicalAddress == null);
             this.manufacturerTypeCb.SelectedIndexChanged += new System.EventHandler(this.manufacturerTypeCb_SelectedIndexChanged);
             this.AddressTypeCB.SelectedIndexChanged += new System.EventHandler(this.AddressTypeCB_SelectedIndexChanged);
+            if (m_Device.PhysicalAddress != null)
+            {
+                UpdateOnlineBtn.Enabled = manufacturerTypeCb.Enabled = false;
+            }
         }
 
         void UpdateManufacturers()
         {
             manufacturerTypeCb.Items.Clear();
-            ((GXDLMSDevice)m_Device).Manufacturers = new GXManufacturerCollection();
-            GXManufacturerCollection.ReadManufacturerSettings(((GXDLMSDevice)m_Device).Manufacturers);
-            foreach (GXManufacturer it in ((GXDLMSDevice)m_Device).Manufacturers)
+            m_Device.Manufacturers = new GXManufacturerCollection();
+            GXManufacturerCollection.ReadManufacturerSettings((m_Device).Manufacturers);
+            foreach (GXManufacturer it in m_Device.Manufacturers)
             {
                 manufacturerTypeCb.Items.Add(it);
             }
@@ -102,7 +106,7 @@ namespace Gurux.DLMS.AddIn
             //Manufacturer type
             foreach (GXManufacturer it in manufacturerTypeCb.Items)
             {
-                if (it.Identification == ((GXDLMSDevice)m_Device).Identification)
+                if (it.Identification == m_Device.Identification)
                 {
                     manufacturerTypeCb.SelectedItem = it;
                     break;
@@ -390,56 +394,55 @@ namespace Gurux.DLMS.AddIn
 		{
             GXServerAddress target = (GXServerAddress)AddressTypeCB.SelectedItem;
             GXManufacturer man = (GXManufacturer)manufacturerTypeCb.SelectedItem;
-            ((GXDLMSDevice)m_Device).ManufacturerName = man.Name;
-            ((GXDLMSDevice)m_Device).Identification = man.Identification;
-            ((GXDLMSDevice)m_Device).Authentication = (Gurux.DLMS.Authentication)authLevelCb.SelectedIndex;
-            ((GXDLMSDevice)m_Device).UseLogicalNameReferencing = man.UseLogicalNameReferencing;
-            ((GXDLMSDevice)m_Device).SupportNetworkSpecificSettings = man.UseIEC47;
+            m_Device.ManufacturerName = man.Name;
+            m_Device.Identification = man.Identification;
+            m_Device.Authentication = (Gurux.DLMS.Authentication)authLevelCb.SelectedIndex;
+            m_Device.UseLogicalNameReferencing = man.UseLogicalNameReferencing;
+            m_Device.SupportNetworkSpecificSettings = man.UseIEC47;
             if (authLevelCb.SelectedIndex != 0)
             {
-                ((GXDLMSDevice)m_Device).Password = passwordTb.Text;
+                m_Device.Password = passwordTb.Text;
             }
             GXAuthentication auth = man.GetAuthentication(Authentication.None);            
             if (auth != null)
             {
-                ((GXDLMSDevice)m_Device).ClientID = auth.ClientID;
+                m_Device.ClientID = auth.ClientID;
             }
             auth = man.GetAuthentication(Authentication.Low);
             if (auth != null)
             {
-                ((GXDLMSDevice)m_Device).ClientIDLow = auth.ClientID;
+                m_Device.ClientIDLow = auth.ClientID;
             }
             auth = man.GetAuthentication(Authentication.High);            
             if (auth != null)
             {
-                ((GXDLMSDevice)m_Device).ClientIDHigh = auth.ClientID;
+                m_Device.ClientIDHigh = auth.ClientID;
             }
-            ((GXDLMSDevice)m_Device).HDLCAddressing = target.HDLCAddress;
+            m_Device.HDLCAddressing = target.HDLCAddress;
             if (target.HDLCAddress == HDLCAddressType.SerialNumber)
             {
-                ((GXDLMSDevice)m_Device).SerialNumber = PhysicalAddressTB.Value.ToString();
-                ((GXDLMSDevice)m_Device).SNFormula = man.GetServer(target.HDLCAddress).Formula;
+                m_Device.SerialNumber = PhysicalAddressTB.Value.ToString();
+                m_Device.SNFormula = man.GetServer(target.HDLCAddress).Formula;
                 //We need physical address type, but we do not want to show it.
-                ((GXDLMSDevice)m_Device).PhysicalAddress = Convert.ChangeType(this.PhysicalAddressTB.Value, target.PhysicalAddress.GetType());
+                m_Device.PhysicalAddress = Convert.ChangeType(this.PhysicalAddressTB.Value, target.PhysicalAddress.GetType());
             }
             else
             {
-                ((GXDLMSDevice)m_Device).PhysicalAddress = Convert.ChangeType(this.PhysicalAddressTB.Value, target.PhysicalAddress.GetType());
+                m_Device.PhysicalAddress = Convert.ChangeType(this.PhysicalAddressTB.Value, target.PhysicalAddress.GetType());
                 if (target.PhysicalAddress.GetType() == typeof(byte))
                 {
-                    ((GXDLMSDevice)m_Device).PhysicalAddressSize = 1;
+                    m_Device.PhysicalAddressSize = 1;
                 }
                 else if (target.PhysicalAddress.GetType() == typeof(UInt16))
                 {
-                    ((GXDLMSDevice)m_Device).PhysicalAddressSize = 2;
+                    m_Device.PhysicalAddressSize = 2;
                 }
                 if (target.PhysicalAddress.GetType() == typeof(UInt32))
                 {
-                    ((GXDLMSDevice)m_Device).PhysicalAddressSize = 4;
+                    m_Device.PhysicalAddressSize = 4;
                 }
-            }
-            
-            ((GXDLMSDevice)m_Device).LogicalAddress = Convert.ToInt32(this.LogicalAddressTB.Value);
+            }            
+            m_Device.LogicalAddress = Convert.ToInt32(this.LogicalAddressTB.Value);
 		}		
 
 		public void Initialize()
@@ -533,11 +536,11 @@ namespace Gurux.DLMS.AddIn
         private void AuthLevelCb_SelectedIndexChanged(object sender, System.EventArgs e)
         {            
             SelectedAuthentication = (GXAuthentication)authLevelCb.SelectedItem;
-            ((GXDLMSDevice)m_Device).Authentication = (Gurux.DLMS.Authentication)SelectedAuthentication.Type;
-            bool enabled = ((GXDLMSDevice)m_Device).Authentication != (int) Gurux.DLMS.Authentication.None;
+            m_Device.Authentication = (Gurux.DLMS.Authentication)SelectedAuthentication.Type;
+            bool enabled = m_Device.Authentication != (int) Gurux.DLMS.Authentication.None;
             if (enabled)
             {
-                passwordTb.Text = ((GXDLMSDevice)m_Device).Password;
+                passwordTb.Text = m_Device.Password;
             }
             passwordTb.Enabled = enabled;
         }
@@ -551,7 +554,7 @@ namespace Gurux.DLMS.AddIn
 			}
             if (initialize)
             {
-                ((GXDLMSDevice)m_Device).StartProtocol = man.StartProtocol;
+                m_Device.StartProtocol = man.StartProtocol;
             }
             authLevelCb.Items.Clear();
             AddressTypeCB.Items.Clear();
@@ -564,7 +567,7 @@ namespace Gurux.DLMS.AddIn
             }
             else
             {
-                AddressTypeCB.SelectedItem = man.GetServer(((GXDLMSDevice)m_Device).HDLCAddressing);
+                AddressTypeCB.SelectedItem = man.GetServer(m_Device.HDLCAddressing);
                 if (AddressTypeCB.SelectedItem == null)
                 {
                     this.AddressTypeCB.SelectedIndexChanged += new System.EventHandler(this.AddressTypeCB_SelectedIndexChanged);
@@ -573,8 +576,8 @@ namespace Gurux.DLMS.AddIn
                 }
                 else
                 {
-                    this.PhysicalAddressTB.Value = Convert.ToDecimal(((GXDLMSDevice)m_Device).PhysicalAddress);
-                    this.LogicalAddressTB.Value = ((GXDLMSDevice)m_Device).LogicalAddress;
+                    this.PhysicalAddressTB.Value = Convert.ToDecimal(m_Device.PhysicalAddress);
+                    this.LogicalAddressTB.Value = m_Device.LogicalAddress;
                 }
             }
             //This must call because there are obx lists where are no authentications.
@@ -589,7 +592,7 @@ namespace Gurux.DLMS.AddIn
                         authLevelCb.SelectedIndex = pos;                        
                     }
                 }
-                else if (((GXDLMSDevice)m_Device).Authentication == it.Type)
+                else if (m_Device.Authentication == it.Type)
                 {
                     authLevelCb.SelectedIndex = pos;
                 }

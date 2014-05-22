@@ -57,7 +57,7 @@ namespace Gurux.DLMS.AddIn
     [GXInitialActionMessage(InitialActionType.Connected, "ReadSNRMSend", "UAReply", Index = 2)]
     [GXInitialActionMessage(InitialActionType.Connected, "ReadAARQ", "AAREReply", "IsAARQSend", "ReadAARQNext", Index = 3)]
     [GXInitialActionMessage(InitialActionType.Disconnecting, "DisconnectRequest", "CheckReplyPacket")]
-    //TODO: [GXInitialActionMessage(InitialActionType.KeepAlive, "KeepAliveRequest", "CheckReplyPacket")]
+    [GXInitialActionMessage(InitialActionType.KeepAlive, "KeepAliveRequest", "CheckReplyPacket")]
     [TypeConverter(typeof(GXDLMSDeviceTypeConverter))]    
     public class GXDLMSDevice : GXDevice
 	{
@@ -77,6 +77,9 @@ namespace Gurux.DLMS.AddIn
             this.GXClient.ChecksumSettings.Count = -2;            
             UseRemoteSerial = false;
             this.WaitTime = 10000;
+            this.Keepalive.Ignore = KeepaliveFieldsIgnored.Reset | KeepaliveFieldsIgnored.Target;
+            this.Keepalive.Interval = 40000;
+
 			AllowedMediaTypes.Add(new GXMediaType("Serial", ""));
 			AllowedMediaTypes.Add(new GXMediaType("Net", ""));
 			AllowedMediaTypes.Add(new GXMediaType("Terminal", ""));

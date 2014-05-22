@@ -111,7 +111,6 @@
     <Compile Include="DLMSPacketHandler.cs" />
     <Compile Include="Extensions\Actaris.cs" />
     <Compile Include="Extensions\IGXManufacturerExtension.cs" />
-    <Compile Include="GXDLMClock.cs" />
     <Compile Include="DLMSTableTypeEnum.cs" />
     <Compile Include="DlmsTypeWizardDlg.cs">
       <SubType>Form</SubType>
@@ -121,8 +120,6 @@
     </Compile>
     <Compile Include="GXDLMSAddIn.cs" />
     <Compile Include="GXDLMSCategory.cs" />
-    <Compile Include="GXDLMSData.cs" />
-    <Compile Include="GXDLMSDemandRegister.cs" />
     <Compile Include="GXDLMSDevice.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -133,9 +130,6 @@
     <Compile Include="GXDLMSDeviceUI.Designer.cs">
       <DependentUpon>GXDLMSDeviceUI.cs</DependentUpon>
     </Compile>
-    <Compile Include="GXDLMSExtendedRegister.cs" />
-    <Compile Include="GXDLMSHdlcSetup.cs" />
-    <Compile Include="GXDLMSIECOpticalPortSetup.cs" />
     <Compile Include="GXDLMSProperty.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -199,9 +193,6 @@
       <ProductName>.NET Framework 3.5</ProductName>
       <Install>false</Install>
     </BootstrapperPackage>
-  </ItemGroup>
-  <ItemGroup>
-    <WCFMetadata Include="Service References\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\GXCom\Gurux.Device\Development\Gurux.Device_2010.csproj">

@@ -18,17 +18,7 @@ namespace Gurux.DLMS.AddIn
         public GXDLMSRegister()
         {
             this.AttributeOrdinal = 2;
-        }
-
-        [ValueAccess(ValueAccessType.Show, ValueAccessType.None)]
-        [GXUserLevelAttribute(UserLevelType.Experienced)]
-        [ReadOnly(true)]
-        public override Gurux.DLMS.ObjectType ObjectType
-        {
-            get
-            {
-                return Gurux.DLMS.ObjectType.Register;
-            }
+            ObjectType = ObjectType.Register;
         }
 
         /// <summary>
